@@ -49,7 +49,7 @@ class BMSModuleManager
 
 
   private:
-    float packVolt;                         // All modules added together
+    float packVolt; // All modules added together
     int Pstring;
     float avg;
     float avgsmooth;
@@ -66,7 +66,7 @@ class BMSModuleManager
     float lowTemp;
     BMSModule modules[MAX_MODULE_ADDR + 1]; // store data for as many modules as we've configured for.
     int batteryID;
-    int numFoundModules;                    // The number of modules that seem to exist
+    int numFoundModules; // The number of modules that seem to exist
     int numFoundModulesOLD;
     bool isFaulted;
     int spack;
@@ -89,5 +89,4 @@ class BMSModuleManager
       void sendModuleSummary(int module);
       void sendCellDetails(int module, int cell);
     */
-
 };

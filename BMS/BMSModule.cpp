@@ -1,8 +1,6 @@
 #include "config.h"
 #include "BMSModule.h"
-#include "BMSUtil.h"
 #include "Logger.h"
-
 
 BMSModule::BMSModule()
 {
@@ -23,7 +21,7 @@ BMSModule::BMSModule()
   exists = false;
   reset = false;
   moduleAddress = 0;
-  timeout = 30000; //milliseconds before comms timeout;
+  timeout = 30000; // milliseconds before comms timeout;
   IgnoreCell = 2.0;
 }
 
@@ -42,109 +40,107 @@ void BMSModule::clearmodule()
   moduleAddress = 0;
 }
 
-void BMSModule::decodecan(int Id, CAN_message_t &msg)
+void BMSModule::decodecan(int Id, BMS_CAN_MESSAGE &msg)
 {
   switch (Id)
   {
-    case 0x1:
-      balstat = msg.buf[0];
-      temperatures[0] = (msg.buf[2] * 256 + msg.buf[3]) * tempconv + tempoff;
-      temperatures[1] = (msg.buf[4] * 256 + msg.buf[5]) * tempconv + tempoff;
-      temperatures[2] = (msg.buf[6] * 256 + msg.buf[7]) * tempconv + tempoff;
-      break;
+  case 0x1:
+    balstat = msg.buf[0];
+    temperatures[0] = (msg.buf[2] * 256 + msg.buf[3]) * tempconv + tempoff;
+    temperatures[1] = (msg.buf[4] * 256 + msg.buf[5]) * tempconv + tempoff;
+    temperatures[2] = (msg.buf[6] * 256 + msg.buf[7]) * tempconv + tempoff;
+    break;
 
-    case 0x3:
-      if (float((msg.buf[0] * 256 + msg.buf[1]) * 0.001) > IgnoreCell && float((msg.buf[0] * 256 + msg.buf[1]) * 0.001) < 60.0)
-      {
-        cellVolt[4] = float((msg.buf[0] * 256 + msg.buf[1]) * 0.001);
-        cmuerror = 0;
-      }
-      else
-      {
+  case 0x3:
+    if (float((msg.buf[0] * 256 + msg.buf[1]) * 0.001) > IgnoreCell && float((msg.buf[0] * 256 + msg.buf[1]) * 0.001) < 60.0)
+    {
+      cellVolt[4] = float((msg.buf[0] * 256 + msg.buf[1]) * 0.001);
+      cmuerror = 0;
+    }
+    else
+    {
+    }
 
-      }
+    if (float((msg.buf[2] * 256 + msg.buf[3]) * 0.001) > IgnoreCell && float((msg.buf[2] * 256 + msg.buf[3]) * 0.001) < 60.0)
+    {
+      cellVolt[5] = float((msg.buf[2] * 256 + msg.buf[3]) * 0.001);
+      cmuerror = 0;
+    }
+    else
+    {
+    }
 
-      if (float((msg.buf[2] * 256 + msg.buf[3]) * 0.001) > IgnoreCell && float((msg.buf[2] * 256 + msg.buf[3]) * 0.001) < 60.0)
-      {
-        cellVolt[5] = float((msg.buf[2] * 256 + msg.buf[3]) * 0.001);
-        cmuerror = 0;
-      }
-      else
-      {
+    if (float((msg.buf[4] * 256 + msg.buf[5]) * 0.001) > IgnoreCell && float((msg.buf[4] * 256 + msg.buf[5]) * 0.001) < 60.0)
+    {
+      cellVolt[6] = float((msg.buf[4] * 256 + msg.buf[5]) * 0.001);
+      cmuerror = 0;
+    }
+    else
+    {
+    }
 
-      }
+    if (float((msg.buf[6] * 256 + msg.buf[7]) * 0.001) > IgnoreCell && float((msg.buf[6] * 256 + msg.buf[7]) * 0.001) < 60.0)
+    {
+      cellVolt[7] = float((msg.buf[6] * 256 + msg.buf[7]) * 0.001);
+      cmuerror = 0;
+    }
+    else
+    {
+    }
 
-      if (float((msg.buf[4] * 256 + msg.buf[5]) * 0.001) > IgnoreCell && float((msg.buf[4] * 256 + msg.buf[5]) * 0.001) < 60.0)
-      {
-        cellVolt[6] = float((msg.buf[4] * 256 + msg.buf[5]) * 0.001);
-        cmuerror = 0;
-      }
-      else
-      {
+    break;
 
-      }
+  case 0x2:
+    if (float((msg.buf[0] * 256 + msg.buf[1]) * 0.001) > IgnoreCell && float((msg.buf[0] * 256 + msg.buf[1]) * 0.001) < 60.0)
+    {
+      cellVolt[0] = float((msg.buf[0] * 256 + msg.buf[1]) * 0.001);
+      cmuerror = 0;
+    }
+    else
+    {
+      cmuerror = 1;
+    }
 
-      if (float((msg.buf[6] * 256 + msg.buf[7]) * 0.001) > IgnoreCell && float((msg.buf[6] * 256 + msg.buf[7]) * 0.001) < 60.0)
-      {
-        cellVolt[7] = float((msg.buf[6] * 256 + msg.buf[7]) * 0.001);
-        cmuerror = 0;
-      }
-      else
-      {
+    if (float((msg.buf[2] * 256 + msg.buf[3]) * 0.001) > IgnoreCell && float((msg.buf[2] * 256 + msg.buf[3]) * 0.001) < 60.0)
+    {
+      cellVolt[1] = float((msg.buf[2] * 256 + msg.buf[3]) * 0.001);
+      cmuerror = 0;
+    }
+    else
+    {
+      cmuerror = 1;
+    }
 
-      }
+    if (float((msg.buf[4] * 256 + msg.buf[5]) * 0.001) > IgnoreCell && float((msg.buf[4] * 256 + msg.buf[5]) * 0.001) < 60.0)
+    {
+      cellVolt[2] = float((msg.buf[4] * 256 + msg.buf[5]) * 0.001);
+      cmuerror = 0;
+    }
+    else
+    {
+      cmuerror = 1;
+    }
 
-      break;
+    if (float((msg.buf[6] * 256 + msg.buf[7]) * 0.001) > IgnoreCell && float((msg.buf[6] * 256 + msg.buf[7]) * 0.001) < 60.0)
+    {
+      cellVolt[3] = float((msg.buf[6] * 256 + msg.buf[7]) * 0.001);
+      cmuerror = 0;
+    }
+    else
+    {
+      cmuerror = 1;
+    }
 
-    case 0x2:
-      if (float((msg.buf[0] * 256 + msg.buf[1]) * 0.001) > IgnoreCell && float((msg.buf[0] * 256 + msg.buf[1]) * 0.001) < 60.0)
-      {
-        cellVolt[0] = float((msg.buf[0] * 256 + msg.buf[1]) * 0.001);
-        cmuerror = 0;
-      }
-      else
-      {
-        cmuerror = 1;
-      }
+    break;
 
-      if (float((msg.buf[2] * 256 + msg.buf[3]) * 0.001) > IgnoreCell && float((msg.buf[2] * 256 + msg.buf[3]) * 0.001) < 60.0)
-      {
-        cellVolt[1] = float((msg.buf[2] * 256 + msg.buf[3]) * 0.001);
-        cmuerror = 0;
-      }
-      else
-      {
-        cmuerror = 1;
-      }
+  default:
 
-      if (float((msg.buf[4] * 256 + msg.buf[5]) * 0.001) > IgnoreCell && float((msg.buf[4] * 256 + msg.buf[5]) * 0.001) < 60.0)
-      {
-        cellVolt[2] = float((msg.buf[4] * 256 + msg.buf[5]) * 0.001);
-        cmuerror = 0;
-      }
-      else
-      {
-        cmuerror = 1;
-      }
-
-      if (float((msg.buf[6] * 256 + msg.buf[7]) * 0.001) > IgnoreCell && float((msg.buf[6] * 256 + msg.buf[7]) * 0.001) < 60.0)
-      {
-        cellVolt[3] = float((msg.buf[6] * 256 + msg.buf[7]) * 0.001);
-        cmuerror = 0;
-      }
-      else
-      {
-        cmuerror = 1;
-      }
-
-      break;
-
-    default:
-
-      break;
+    break;
   }
-  if (getLowTemp() < lowestTemperature) lowestTemperature = getLowTemp();
-  if (getHighTemp() > highestTemperature) highestTemperature = getHighTemp();
+  if (getLowTemp() < lowestTemperature)
+    lowestTemperature = getLowTemp();
+  if (getHighTemp() > highestTemperature)
+    highestTemperature = getHighTemp();
 
   for (int i = 0; i < 8; i++)
   {
@@ -172,7 +168,7 @@ void BMSModule::decodecan(int Id, CAN_message_t &msg)
         SERIALCONSOLE.print("Module");
         SERIALCONSOLE.print(moduleAddress);
         SERIALCONSOLE.print("Counter Till Can Error : ");
-        SERIALCONSOLE.println(lasterror + timeout - millis() );
+        SERIALCONSOLE.println(lasterror + timeout - millis());
       }
     }
     else
@@ -189,7 +185,6 @@ void BMSModule::decodecan(int Id, CAN_message_t &msg)
   }
 }
 
-
 /*
   Reading the status of the board to identify any flags, will be more useful when implementing a sleep cycle
 */
@@ -197,10 +192,9 @@ void BMSModule::readStatus()
 {
   uint8_t payload[3];
   uint8_t buff[8];
-  payload[0] = moduleAddress << 1; //adresss
-  payload[1] = REG_ALERT_STATUS;//Alert Status start
+  payload[0] = moduleAddress << 1; // adresss
+  payload[1] = REG_ALERT_STATUS;   // Alert Status start
   payload[2] = 0x04;
-  BMSUtil::sendDataWithReply(payload, 3, false, buff, 7);
   alerts = buff[3];
   faults = buff[4];
   COVFaults = buff[5];
@@ -229,7 +223,8 @@ uint8_t BMSModule::getCUVCells()
 
 float BMSModule::getCellVoltage(int cell)
 {
-  if (cell < 0 || cell > 8) return 0.0f;
+  if (cell < 0 || cell > 8)
+    return 0.0f;
   return cellVolt[cell];
 }
 
@@ -252,7 +247,8 @@ float BMSModule::getHighCellV()
   for (int i = 0; i < 8; i++)
     if (cellVolt[i] > IgnoreCell && cellVolt[i] < 60.0)
     {
-      if (cellVolt[i] > hiVal) hiVal = cellVolt[i];
+      if (cellVolt[i] > hiVal)
+        hiVal = cellVolt[i];
     }
   return hiVal;
 }
@@ -295,13 +291,15 @@ float BMSModule::getLowestModuleVolt()
 
 float BMSModule::getHighestCellVolt(int cell)
 {
-  if (cell < 0 || cell > 8) return 0.0f;
+  if (cell < 0 || cell > 8)
+    return 0.0f;
   return highestCellVolt[cell];
 }
 
 float BMSModule::getLowestCellVolt(int cell)
 {
-  if (cell < 0 || cell > 8) return 0.0f;
+  if (cell < 0 || cell > 8)
+    return 0.0f;
   return lowestCellVolt[cell];
 }
 
@@ -493,7 +491,6 @@ float BMSModule::getAvgTemp()
   {
     return (temperatures[1]);
   }
-
 }
 
 float BMSModule::getModuleVoltage()
@@ -511,13 +508,15 @@ float BMSModule::getModuleVoltage()
 
 float BMSModule::getTemperature(int temp)
 {
-  if (temp < 0 || temp > 2) return 0.0f;
+  if (temp < 0 || temp > 2)
+    return 0.0f;
   return temperatures[temp];
 }
 
 void BMSModule::setAddress(int newAddr)
 {
-  if (newAddr < 0 || newAddr > MAX_MODULE_ADDR) return;
+  if (newAddr < 0 || newAddr > MAX_MODULE_ADDR)
+    return;
   moduleAddress = newAddr;
 }
 

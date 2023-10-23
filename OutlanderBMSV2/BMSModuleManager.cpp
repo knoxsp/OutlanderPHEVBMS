@@ -34,11 +34,9 @@ BMSModuleManager::BMSModuleManager()
   {
     avgcell[y] = 0;
     lowcell[y] = 0;
-    highcell [y] = 0;
+    highcell[y] = 0;
   }
-
 }
-
 void BMSModuleManager::clearmodules()
 {
   for (int y = 1; y < 63; y++)
@@ -83,6 +81,7 @@ int BMSModuleManager::seriescells()
   spack = 0;
   for (int y = 1; y < 63; y++)
   {
+    if (modules[y].isExisting())
     {
       spack = spack + modules[y].getscells();
     }
@@ -117,7 +116,7 @@ void BMSModuleManager::getAllVoltTemp()
   getLowCellVolt();
   getHighCellVolt();
   /////smoothing Low////////////////////
-  //initalize on start up//
+  // initalize on start up//
   if (HighCellVoltsmooth == 0 && LowCellVoltsmooth == 0)
   {
     HighCellVoltsmooth = HighCellVolt;
@@ -139,7 +138,6 @@ void BMSModuleManager::getAllVoltTemp()
   {
     LowCellVoltsmooth = LowCellVolt;
   }
-
 
   // Serial.print(LowCellVoltsmooth);
 
@@ -189,22 +187,31 @@ void BMSModuleManager::getAllVoltTemp()
       Logger::debug("Lowest Cell V: %f     Highest Cell V: %f", modules[x].getLowCellV(), modules[x].getHighCellV());
       Logger::debug("Temp1: %f       Temp2: %f", modules[x].getTemperature(0), modules[x].getTemperature(1));
       packVolt += modules[x].getModuleVoltage();
-      if (modules[x].getLowTemp() < lowestPackTemp) lowestPackTemp = modules[x].getLowTemp();
-      if (modules[x].getHighTemp() > highestPackTemp) highestPackTemp = modules[x].getHighTemp();
+      if (modules[x].getLowTemp() < lowestPackTemp){
+        lowestPackTemp = modules[x].getLowTemp();
+      }
+      if (modules[x].getHighTemp() > highestPackTemp){
+        highestPackTemp = modules[x].getHighTemp();
+      }
     }
   }
 
   packVolt = packVolt / Pstring;
-  if (packVolt > highestPackVolt) highestPackVolt = packVolt;
-  if (packVolt < lowestPackVolt) lowestPackVolt = packVolt;
+  if (packVolt > highestPackVolt)
+      highestPackVolt = packVolt;
+  if (packVolt < lowestPackVolt)
+      lowestPackVolt = packVolt;
 
-  if (digitalRead(11) == LOW) {
-    if (!isFaulted) Logger::error("One or more BMS modules have entered the fault state!");
+  if (digitalRead(11) == LOW)
+  {
+    if (!isFaulted)
+      Logger::error("One or more BMS modules have entered the fault state!");
     isFaulted = true;
   }
   else
   {
-    if (isFaulted) Logger::info("All modules have exited a faulted state");
+    if (isFaulted)
+      Logger::info("All modules have exited a faulted state");
     isFaulted = false;
   }
 }
@@ -222,7 +229,8 @@ float BMSModuleManager::getLowCellVolt()
   {
     if (modules[x].isExisting())
     {
-      if (modules[x].getLowCellV() <  LowCellVolt)  LowCellVolt = modules[x].getLowCellV();
+      if (modules[x].getLowCellV() < LowCellVolt)
+      LowCellVolt = modules[x].getLowCellV();
     }
   }
   /////smoothing////////////////////
@@ -243,7 +251,8 @@ float BMSModuleManager::getHighCellVolt()
   {
     if (modules[x].isExisting())
     {
-      if (modules[x].getHighCellV() >  HighCellVolt)  HighCellVolt = modules[x].getHighCellV();
+      if (modules[x].getHighCellV() > HighCellVolt)
+        HighCellVolt = modules[x].getHighCellV();
     }
   }
   /////smoothing////////////////////
@@ -270,6 +279,10 @@ void BMSModuleManager::setBatteryID(int id)
 {
   batteryID = id;
 }
+void BMSModuleManager::setBalIgnore(bool BalIgn)
+{
+  BalIgnore = BalIgn;
+}
 
 void BMSModuleManager::setPstrings(int Pstrings)
 {
@@ -295,7 +308,7 @@ void BMSModuleManager::setSensors(int sensor, float Ignore, float tempconvin, in
   resetLowCellV();
 }
 
-void BMSModuleManager::resetLowCellV() //Reset once Ignore voltage determined
+void BMSModuleManager::resetLowCellV() // Reset once Ignore voltage determined
 {
   getLowCellVolt();
   LowCellVoltsmooth = LowCellVolt;
@@ -306,7 +319,7 @@ float BMSModuleManager::getAvgTemperature()
   float avgtemp = 0.0f;
   lowTemp = 999.0f;
   highTemp = -999.0f;
-  int y = 0; //counter for modules below -70 (no sensors connected)
+  int y = 0; // counter for modules below -70 (no sensors connected)
   numFoundModules = 0;
   for (int x = 1; x <= MAX_MODULE_ADDR; x++)
   {
@@ -351,8 +364,6 @@ int BMSModuleManager::getNumModules()
   return numFoundModules;
 }
 
-
-
 float BMSModuleManager::getLowTemperature()
 {
   return lowTemp;
@@ -363,10 +374,10 @@ float BMSModuleManager::getAvgCellVolt()
   avg = 0.0f;
   for (int x = 1; x <= MAX_MODULE_ADDR; x++)
   {
-    if (modules[x].isExisting()) avg += modules[x].getAverageV();
+    if (modules[x].isExisting())
+      avg += modules[x].getAverageV();
   }
   avg = avg / (float)numFoundModules;
-
 
   //////smoothing////////////////////
   /*
@@ -387,6 +398,44 @@ float BMSModuleManager::getAvgCellVolt()
   return avgsmooth;
 }
 
+void BMSModuleManager::printPackDetailsJson(DynamicJsonDocument &root)
+{
+  uint8_t faults;
+  uint8_t alerts;
+  uint8_t COV;
+  uint8_t CUV;
+  int cellNum = 0;
+
+  JsonArray modulesNode = root.createNestedArray("modules");
+  for (int y = 1; y < 63; y++)
+  {
+    if (modules[y].isExisting())
+    {
+      JsonObject moduleNode = modulesNode.createNestedObject();
+      moduleNode["module"] = y;
+      moduleNode["total_voltage"] = modules[y].getModuleVoltage();
+      moduleNode["lowest_voltage"] = modules[y].getLowCellV();
+      moduleNode["highest_voltage"] = modules[y].getHighCellV();
+      moduleNode["average_voltage"] = modules[y].getAverageV();
+      moduleNode["temperature1"] = modules[y].getTemperature(0);
+      moduleNode["temperature2"] = modules[y].getTemperature(1);
+      moduleNode["temperature3"] = modules[y].getTemperature(2);
+      moduleNode["balance_status"] = modules[y].getbalstat();
+      JsonArray cellsNode = moduleNode.createNestedArray("cells");
+      faults = modules[y].getFaults();
+      alerts = modules[y].getAlerts();
+      COV = modules[y].getCOVCells();
+      CUV = modules[y].getCUVCells();
+
+      for (int i = 0; i < 13; i++)
+      {
+        JsonObject cellNode = cellsNode.createNestedObject();
+        cellNode["cell"] = cellNum++;
+        cellNode["voltage"] = modules[y].getCellVoltage(i);
+      }
+    }
+  }
+}
 void BMSModuleManager::printPackSummary()
 {
   uint8_t faults;
@@ -495,7 +544,8 @@ void BMSModuleManager::printPackSummary()
           Logger::console("    Address not registered");
         }
       }
-      if (faults > 0 || alerts > 0) SERIALCONSOLE.println();
+      if (faults > 0 || alerts > 0)
+        SERIALCONSOLE.println();
     }
   }
 }
@@ -527,13 +577,15 @@ void BMSModuleManager::printPackDetails(int digits, bool showbal)
 
       SERIALCONSOLE.print("Module #");
       SERIALCONSOLE.print(y);
-      if (y < 10) SERIALCONSOLE.print(" ");
+      if (y < 10)
+        SERIALCONSOLE.print(" ");
       SERIALCONSOLE.print("  ");
       SERIALCONSOLE.print(modules[y].getModuleVoltage(), digits);
       SERIALCONSOLE.print("V");
       for (int i = 0; i < 8; i++)
       {
-        if (cellNum < 10) SERIALCONSOLE.print(" ");
+        if (cellNum < 10)
+          SERIALCONSOLE.print(" ");
         SERIALCONSOLE.print("  Cell");
         SERIALCONSOLE.print(cellNum++);
         SERIALCONSOLE.print(": ");
@@ -552,8 +604,10 @@ void BMSModuleManager::printPackDetails(int digits, bool showbal)
         }
       }
       SERIALCONSOLE.println();
+
       SERIALCONSOLE.print(" Temp 1: ");
       SERIALCONSOLE.print(modules[y].getTemperature(0));
+
       SERIALCONSOLE.print("C Temp 2: ");
       SERIALCONSOLE.print(modules[y].getTemperature(1));
       SERIALCONSOLE.print("C Temp 3: ");
@@ -562,13 +616,12 @@ void BMSModuleManager::printPackDetails(int digits, bool showbal)
       if (showbal == 1)
       {
         SERIALCONSOLE.print("C  Bal Stat: ");
-        SERIALCONSOLE.println( bal, BIN);
+        SERIALCONSOLE.println(bal, BIN);
       }
       else
       {
         SERIALCONSOLE.println("C");
       }
-
     }
   }
 }

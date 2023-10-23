@@ -27,7 +27,12 @@
 #include "Logger.h"
 #include "BMSModuleManager.h"
 
-template<class T> inline Print &operator <<(Print &obj, T arg) { obj.print(arg); return obj; } //Lets us stream SerialUSB
+template <class T>
+inline Print &operator<<(Print &obj, T arg)
+{
+    obj.print(arg);
+    return obj;
+} // Lets us stream SerialUSB
 
 extern BMSModuleManager bms;
 
@@ -35,34 +40,41 @@ bool printPrettyDisplay;
 uint32_t prettyCounter;
 int whichDisplay;
 
-SerialConsole::SerialConsole() {
+SerialConsole::SerialConsole()
+{
     init();
 }
 
-void SerialConsole::init() {
-    //State variables for serial console
+void SerialConsole::init()
+{
+    // State variables for serial console
     ptrBuffer = 0;
     state = STATE_ROOT_MENU;
-    loopcount=0;
-    cancel=false;
+    loopcount = 0;
+    cancel = false;
     printPrettyDisplay = false;
     prettyCounter = 0;
     whichDisplay = 0;
 }
 
-void SerialConsole::loop() {  
-    if (SERIALCONSOLE.available()) {
+void SerialConsole::loop()
+{
+    if (SERIALCONSOLE.available())
+    {
         serialEvent();
     }
     if (printPrettyDisplay && (millis() > (prettyCounter + 3000)))
     {
         prettyCounter = millis();
-        if (whichDisplay == 0) bms.printPackSummary();
-        if (whichDisplay == 1) bms.printPackDetails(2,0);
+        if (whichDisplay == 0)
+            bms.printPackSummary();
+        if (whichDisplay == 1)
+            bms.printPackDetails(2, 0);
     }
 }
-              
-void SerialConsole::printMenu() {   
+
+void SerialConsole::printMenu()
+{
     Logger::console("\n*************SYSTEM MENU *****************");
     Logger::console("Enable line endings of some sort (LF, CR, CRLF)");
     Logger::console("Most commands case sensitive\n");
@@ -76,7 +88,7 @@ void SerialConsole::printMenu() {
     Logger::console("   B = Attempt balancing for 5 seconds");
     Logger::console("   p = Toggle output of pack summary every 3 seconds");
     Logger::console("   d = Toggle output of pack details every 3 seconds");
-  
+
     Logger::console("   LOGLEVEL=%i - set log level (0=debug, 1=info, 2=warn, 3=error, 4=off)", Logger::getLogLevel());
 
     float OverVSetpoint;
@@ -91,39 +103,49 @@ void SerialConsole::printMenu() {
 
     Commands are submitted by sending line ending (LF, CR, or both)
  */
-void SerialConsole::serialEvent() {
+void SerialConsole::serialEvent()
+{
     int incoming;
     incoming = SERIALCONSOLE.read();
-    if (incoming == -1) { //false alarm....
+    if (incoming == -1)
+    { // false alarm....
         return;
     }
 
-    if (incoming == 10 || incoming == 13) { //command done. Parse it.
+    if (incoming == 10 || incoming == 13)
+    { // command done. Parse it.
         handleConsoleCmd();
-        ptrBuffer = 0; //reset line counter once the line has been processed
-    } else {
-        cmdBuffer[ptrBuffer++] = (unsigned char) incoming;
+        ptrBuffer = 0; // reset line counter once the line has been processed
+    }
+    else
+    {
+        cmdBuffer[ptrBuffer++] = (unsigned char)incoming;
         if (ptrBuffer > 79)
             ptrBuffer = 79;
     }
 }
 
-void SerialConsole::handleConsoleCmd() {
+void SerialConsole::handleConsoleCmd()
+{
 
-    if (state == STATE_ROOT_MENU) {
-        if (ptrBuffer == 1) { //command is a single ascii character
+    if (state == STATE_ROOT_MENU)
+    {
+        if (ptrBuffer == 1)
+        { // command is a single ascii character
             handleShortCmd();
-        } else { //if cmd over 1 char then assume (for now) that it is a config line
-            //handleConfigCmd();
+        }
+        else
+        { // if cmd over 1 char then assume (for now) that it is a config line
+            // handleConfigCmd();
         }
     }
 }
 
-void SerialConsole::handleShortCmd() 
+void SerialConsole::handleShortCmd()
 {
     uint8_t val;
 
-    switch (cmdBuffer[0]) 
+    switch (cmdBuffer[0])
     {
     case 'h':
     case '?':
@@ -151,9 +173,10 @@ void SerialConsole::handleShortCmd()
         break;
     case 'B':
         bms.balanceCells();
-        break;    
+        break;
     case 'p':
-        if (whichDisplay == 1 && printPrettyDisplay) whichDisplay = 0;
+        if (whichDisplay == 1 && printPrettyDisplay)
+            whichDisplay = 0;
         else
         {
             printPrettyDisplay = !printPrettyDisplay;
@@ -168,7 +191,8 @@ void SerialConsole::handleShortCmd()
         }
         break;
     case 'd':
-        if (whichDisplay == 0 && printPrettyDisplay) whichDisplay = 1;
+        if (whichDisplay == 0 && printPrettyDisplay)
+            whichDisplay = 1;
         else
         {
             printPrettyDisplay = !printPrettyDisplay;
@@ -180,15 +204,15 @@ void SerialConsole::handleShortCmd()
             else
             {
                 Logger::console("No longer displaying pack details.");
-            }            
+            }
         }
         break;
     }
 }
 
 /*
-    if (SERIALCONSOLE.available()) 
-    {     
+    if (SERIALCONSOLE.available())
+    {
         char y = SERIALCONSOLE.read();
         switch (y)
         {
@@ -199,7 +223,7 @@ void SerialConsole::handleShortCmd()
             SERIALCONSOLE.println();
             findBoards();
             break;
-        case '3': //activate cell balance for 5 seconds 
+        case '3': //activate cell balance for 5 seconds
             SERIALCONSOLE.println();
             SERIALCONSOLE.println("Balancing");
             cellBalance();
@@ -223,8 +247,8 @@ void SerialConsole::handleShortCmd()
        SERIALCONSOLE.println(OVolt);
        SERIALCONSOLE.println(UVolt);
        SERIALCONSOLE.println(Tset);
-      break; 
-                
+      break;
+
       case '0': //Send all boards into Sleep state
        Serial.println();
        Serial.println("Sleep Mode");
@@ -235,8 +259,8 @@ void SerialConsole::handleShortCmd()
        Serial.println();
        Serial.println("Wake Boards");
        wakeBoards();
-      break;          
-                      
+      break;
+
         }
-    }     
+    }
  */

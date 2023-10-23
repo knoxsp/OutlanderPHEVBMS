@@ -46,7 +46,7 @@ class BMSModule
     float cellVolt[8];          // calculated as 16 bit value * 6.250 / 16383 = volts
     float lowestCellVolt[8];
     float highestCellVolt[8];
-    float moduleVolt;          // calculated as 16 bit value * 33.333 / 16383 = volts
+    float moduleVolt;      // calculated as 16 bit value * 33.333 / 16383 = volts
     float temperatures[3];     // Don't know the proper scaling at this point
     float lowestTemperature;
     float highestTemperature;
@@ -60,11 +60,12 @@ class BMSModule
     int COVFaults;
     int CUVFaults;
     int sensor;
-    uint8_t moduleAddress;     //1 to 0x3E
+    uint8_t moduleAddress; // 1 to 0x3E
     int scells;
     uint8_t balstat;
     uint32_t lasterror;
     uint8_t cmuerror;
+    int16_t TempOff;
     uint16_t timeout;
     float tempconv;
     int tempoff;

@@ -29,7 +29,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include "config.h"
 
-class SerialConsole {
+class SerialConsole
+{
 public:
     SerialConsole();
     void loop();
@@ -48,7 +49,6 @@ private:
     int loopcount;
     bool cancel;
 
-
     void init();
     void serialEvent();
     void handleConsoleCmd();
@@ -56,5 +56,3 @@ private:
 };
 
 #endif /* SERIALCONSOLE_H_ */
-
-
