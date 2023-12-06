@@ -558,8 +558,8 @@ void BMSModule::setReset(bool ex)
 void BMSModule::setIgnoreCell(float Ignore)
 {
   IgnoreCell = Ignore;
-  Serial.print(Ignore);
-  Serial.println();
+  // Serial.print("Ignoring Cell: ");
+  // Serial.println(Ignore);
 }
 
 void BMSModule::setTempconv(float tempconvin, int tempoffin)

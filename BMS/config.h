@@ -34,7 +34,7 @@
 #define REG_ADC_CONV 0x34
 #define REG_ADDR_CTRL 0x3B
 
-#define MAX_MODULE_ADDR 0x3E
+#define MAX_MODULE_ADDR 0xC // 12 modules
 
 #define EEPROM_VERSION 0x13 // update any time EEPROM struct below is changed.
 #define EEPROM_PAGE 0
@@ -105,4 +105,9 @@ typedef struct
   int secondBatteryCanIndex;
   int rapidchargecurrentmax;
   int numberOfChargers;
+  int numberOfModules;
+  int inverterTempSetpoint;
+  int motorTempSetpoint;
+  int inverterTempHys;
+  int motorTempHys;
 } EEPROMSettings;

@@ -64,7 +64,7 @@ This version of SimpBMS has been modified as the Space Balls edition utilising t
 
 #define CPU_REBOOT (ESP.restart());
 #define WDT_TIMEOUT 3
-#define HOSTNAME "ESP32-BMS"
+#define HOSTNAME "BALLSBMS"
 
 BMSModuleManager bms;
 SerialConsole console;
@@ -75,9 +75,11 @@ BMSWebServer bmsWebServer(settings, bms);
 int firmver = 230720;
 
 // Simple BMS V2 wiring//
-const int AC_PRESENT = 34; // DIN0 (Digital In 0) - high active //AC Present
-const int OUT_FAN = 32;    // output 1 - high active //repurpose for fan
-const int DCDC_ENABLE = 33;    // output 1 - high active //repurpose for fan
+const int AC_PRESENT = 34;  // DIN0 (Digital In 0) - high active //AC Present
+const int CRANK_IN = 35;    // DIN1 - high active //repurpose for Crank signal
+const int OUT_FAN = 32;     // DOUT1 - switched ground. high active // for fan
+const int OUT_DCDC_ENABLE = 33; // DOUT2 - switched ground. high active //DC_DC Enable
+const int OUT_NEG_CONTACTOR = 25; // DOUT3 - switched ground. high active // NEG CONTACTOR
 const int led = 2;
 const int BMBfault = 11;
 
@@ -101,6 +103,8 @@ byte bmsstatus = 0;
 #define Outlander 1
 
 bool secondPackFound = false;
+
+bool crankSeen = false;
 
 int Discharge;
 int ErrorReason = 0;
@@ -132,6 +136,8 @@ float currentact, RawCur;
 float ampsecond;
 unsigned long lasttime;
 byte inverterStatus;
+int inverterTemp;
+int motorTemp;
 bool inverterInDrive = false;
 bool rapidCharging = false;
 unsigned long looptime, looptime1, looptime2, UnderTime, cleartime, chargertimer, balancetimer, OverTime = 0; // ms
@@ -161,10 +167,6 @@ int menuload = 0;
 int balancecells;
 int debugdigits = 2; // amount of digits behind decimal for voltage reading
 int chargeOverride = 0;
-
-void getcurrent();
-
-
 
 bool chargeEnabled()
 {
@@ -209,44 +211,49 @@ void loadSettings()
   settings.balanceHyst = 0.04f;
   settings.balanceDuty = 60;
   settings.logLevel = 2;
-  settings.CAP = 100;              // battery size in Ah
+  settings.CAP = 37.5;              // battery size in Ah
   settings.Pstrings = 1;           // strings in parallel used to divide voltage of pack
-  settings.Scells = 12;            // Cells in series
+  settings.Scells = 96;            // Cells in series
   settings.StoreVsetpoint = 3.8;   // V storage mode charge max
   settings.discurrentmax = 300;    // max discharge current in 0.1A
   settings.DisTaper = 0.3f;        // V offset to bring in discharge taper to Zero Amps at settings.DischVsetpoint
   settings.chargecurrentmax = 300; // max charge current in 0.1A
   settings.rapidchargecurrentmax = 1200;
-  settings.chargecurrentend = 50;                               // end charge current in 0.1A
-  settings.socvolt[0] = 3100;                                   // Voltage and SOC curve for voltage based SOC calc
-  settings.socvolt[1] = 10;                                     // Voltage and SOC curve for voltage based SOC calc
-  settings.socvolt[2] = 4100;                                   // Voltage and SOC curve for voltage based SOC calc
-  settings.socvolt[3] = 90;                                     // Voltage and SOC curve for voltage based SOC calc
-  settings.invertcur = 0;                                       // Invert current sensor direction
-  settings.chargerCanIndex = DEFAULT_CAN_INTERFACE_INDEX;       // default to can0
-  settings.veCanIndex = DEFAULT_CAN_INTERFACE_INDEX;            // default to can0
-  settings.secondBatteryCanIndex = 1; // default to can1
-  settings.voltsoc = 0;                                         // SOC purely voltage based
-  settings.conthold = 50;                                       // holding duty cycle for contactor 0-255
-  settings.Precurrent = 1000;                                   // ma before closing main contator
-  settings.convhigh = 580;                                      // mV/A current sensor high range channel//SK WHY dffernet numbers compared to BMW?
-  settings.convlow = 6430;                                      // mV/A current sensor low range channel//SK WHY dffernet numbers compared to BMW?
-  settings.changecur = 20000;                                   // mA change overpoint
-  settings.offset1 = 1750;                                      // mV mid point of channel 1
-  settings.offset2 = 1750;                                      // mV mid point of channel 2
-  settings.gaugelow = 50;                                       // empty fuel gauge pwm
-  settings.gaugehigh = 255;                                     // full fuel gauge pwm
-  settings.ncur = 1;                                            // number of multiples to use for current measurement
-  settings.chargertype = 2;                                     // 1 - Brusa NLG5xx 2 - Volt charger 0 -No Charger
-  settings.chargerspd = 100;                                    // ms per message
-  settings.CurDead = 5;                                         // mV of dead band on current sensor
-  settings.ChargerDirect = 1;                                   // 1 - charger is always connected to HV battery // 0 - Charger is behind the contactors
-  settings.TempOff = -52;                                       // Temperature offset
-  settings.tripcont = 1;                                        // in ESSmode 1 - Main contactor function, 0 - Trip function
-  settings.triptime = 5000;                                     // mS of delay before counting over or undervoltage
-  settings.TempConv = 0.0038;                                   // Temperature scale
-  settings.chargecurrentcold = 1;                               // Max allowed charging current below under temperature
-  settings.numberOfChargers = 1;
+  settings.chargecurrentend = 50;                         // end charge current in 0.1A
+  settings.socvolt[0] = 3100;                             // Voltage and SOC curve for voltage based SOC calc
+  settings.socvolt[1] = 10;                               // Voltage and SOC curve for voltage based SOC calc
+  settings.socvolt[2] = 4100;                             // Voltage and SOC curve for voltage based SOC calc
+  settings.socvolt[3] = 90;                               // Voltage and SOC curve for voltage based SOC calc
+  settings.invertcur = 0;                                 // Invert current sensor direction
+  settings.chargerCanIndex = DEFAULT_CAN_INTERFACE_INDEX; // default to can0
+  settings.veCanIndex = DEFAULT_CAN_INTERFACE_INDEX;      // default to can0
+  settings.secondBatteryCanIndex = 1;                     // default to can1
+  settings.voltsoc = 0;                                   // SOC purely voltage based
+  settings.conthold = 50;                                 // holding duty cycle for contactor 0-255
+  settings.Precurrent = 1000;                             // ma before closing main contator
+  settings.convhigh = 580;                                // mV/A current sensor high range channel//SK WHY dffernet numbers compared to BMW?
+  settings.convlow = 6430;                                // mV/A current sensor low range channel//SK WHY dffernet numbers compared to BMW?
+  settings.changecur = 20000;                             // mA change overpoint
+  settings.offset1 = 1750;                                // mV mid point of channel 1
+  settings.offset2 = 1750;                                // mV mid point of channel 2
+  settings.gaugelow = 50;                                 // empty fuel gauge pwm
+  settings.gaugehigh = 255;                               // full fuel gauge pwm
+  settings.ncur = 1;                                      // number of multiples to use for current measurement
+  settings.chargertype = 2;                               // 1 - Brusa NLG5xx 2 - Volt charger 0 -No Charger
+  settings.chargerspd = 100;                              // ms per message
+  settings.CurDead = 5;                                   // mV of dead band on current sensor
+  settings.ChargerDirect = 1;                             // 1 - charger is always connected to HV battery // 0 - Charger is behind the contactors
+  settings.TempOff = -52;                                 // Temperature offset
+  settings.tripcont = 1;                                  // in ESSmode 1 - Main contactor function, 0 - Trip function
+  settings.triptime = 5000;                               // mS of delay before counting over or undervoltage
+  settings.TempConv = 0.0038;                             // Temperature scale
+  settings.chargecurrentcold = 1;                         // Max allowed charging current below under temperature
+  settings.numberOfChargers = 1;                          // The number of chargers.
+  settings.numberOfModules = 12;                          // Number of modules in the battery pack
+  settings.inverterTempSetpoint = 40;                     //Inverter temp at which to turn on the fan
+  settings.motorTempSetpoint = 40;                        // Motor temp at which to turn on the fan
+  settings.inverterTempHys = 5;                           // Hysteresis buffer for inverter temp (for fan control)
+  settings.motorTempHys = 5;                              // Hysteresis buffer for motor temp (for fan control)
 }
 
 BMSCan bmscan;
@@ -256,35 +263,31 @@ BMS_CAN_MESSAGE inMsg;
 // TODO: How do we make this web-configurable?
 OutlanderCharger charger(bmscan, settings);
 
-////Variables for canbus transmit soft buffer SK WHAT ARE THSE FOR???////
-int sendCnt = 0;
-int sendbufsize = 10;
-///
-
-uint32_t lastUpdate;
-
 void setup()
 {
   Serial.begin(115200);
- // SERIALCONSOLE.begin(115200);
+  // SERIALCONSOLE.begin(115200);
   Serial.println("Starting up!");
   Serial.println("SimpBMS V2 Outlander");
   delay(4000); // just for easy debugging. It takes a few seconds for USB to come up properly on most OS's
-  
+
   pinMode(AC_PRESENT, INPUT);
-  
+
   pinMode(OUT_FAN, OUTPUT); // fan relay
-  digitalWrite(OUT_FAN, LOW);
-  
-  pinMode(DCDC_ENABLE, OUTPUT); // fan relay
-  digitalWrite(DCDC_ENABLE, HIGH);//enable by default
+  digitalWrite(OUT_FAN, LOW); // disable by default
+
+  pinMode(OUT_NEG_CONTACTOR, OUTPUT); // negative contactor
+  digitalWrite(OUT_NEG_CONTACTOR, LOW); // disable by default
+
+  pinMode(OUT_DCDC_ENABLE, OUTPUT);    // DCDC enable
+  digitalWrite(OUT_DCDC_ENABLE, HIGH); // enable by default
 
   pinMode(led, OUTPUT);
- // enable WDT
- noInterrupts();                       // don't allow interrupts while setting up WDOG
- esp_task_wdt_init(WDT_TIMEOUT, true); // enable panic so ESP32 restarts
- esp_task_wdt_add(NULL);               // add current thread to WDT watch
- interrupts();
+  // enable WDT
+  noInterrupts();                       // don't allow interrupts while setting up WDOG
+  esp_task_wdt_init(WDT_TIMEOUT, true); // enable panic so ESP32 restarts
+  esp_task_wdt_add(NULL);               // add current thread to WDT watch
+  interrupts();
   /////////////////
   EEPROM.begin(sizeof(settings));
   EEPROM.get(0, settings);
@@ -299,27 +302,25 @@ void setup()
   SPI.begin(MCP2515_SCK, MCP2515_MISO, MCP2515_MOSI, MCP2515_CS);
   bmscan.can1 = new ACAN2515(MCP2515_CS, SPI, MCP2515_INT);
   ACAN2515Settings cansettings(16 * 1000 * 1000, 500000);
-  
+
   const ACAN2515Mask rxm0 = standard2515Mask(0x7FF, 0, 0); // For filter #0 and #1
   const ACAN2515Mask rxm1 = standard2515Mask(0x000, 0, 0); // For filter #2 to #
   const ACAN2515AcceptanceFilter filters[] = {
-      {standard2515Filter(0x02, 0, 0), receivedFiltered},
-      {standard2515Filter(0x01, 0, 0), receivedFiltered},
-      {standard2515Filter(0x520, 0, 0), receivedFiltered},
-      {standard2515Filter(0x600, 0, 0), receivedFiltered} //outlander pack 2
-};
+      {standard2515Filter(0x01, 0, 0), receivedFiltered}, // VCU
+      //{standard2515Filter(0x01, 0, 0), receivedFiltered},
+      {standard2515Filter(0x520, 0, 0), receivedFiltered}, // ISA shunt
+      {standard2515Filter(0x600, 0, 0), receivedFiltered} // outlander pack 2
+  };
 
   const uint16_t errorCode = bmscan.can1->begin(
       cansettings, []
       { bmscan.can1->isr(); },
       rxm0, rxm1, filters, 5);
-      
+
   bmscan.begin(500000, settings.secondBatteryCanIndex);
- // bmscan.begin(500000, settings.chargerCanIndex);
+  // bmscan.begin(500000, settings.chargerCanIndex);
   bmscan.begin(500000, settings.veCanIndex);
   Logger::setLoglevel(Logger::Off); // Debug = 0, Info = 1, Warn = 2, Error = 3, Off = 4
-
-  lastUpdate = 0;
 
   // Initialize SPIFFS
   if (!SPIFFS.begin(true))
@@ -330,9 +331,15 @@ void setup()
   // AP and Station Mode
   WiFi.mode(WIFI_AP_STA);
 
-  WiFi.hostname(HOSTNAME);
+  WiFi.setHostname(HOSTNAME);
   // Connect to Wi-Fi
-  WiFi.begin();
+  WiFi.begin("BT-JNF6TR", "qauFKtE7GVRPMh");
+  //WiFi.begin();
+
+  while (WiFi.status() != WL_CONNECTED) {
+    Serial.print('.');
+    delay(1000);
+  }
 
   Serial.println(WiFi.localIP());
 
@@ -365,16 +372,16 @@ static void receivedFiltered(const CANMessage &inMsg)
 
   if (inMsg.id > 0x600 && inMsg.id < 0x800) // do mitsubishi magic if ids are ones identified to be modules
   {
-    //convert the incoming CANMessage object into a BMS_CAN_MESSAGE object so it can be used with bmscan
+    // convert the incoming CANMessage object into a BMS_CAN_MESSAGE object so it can be used with bmscan
     BMS_CAN_MESSAGE modifiedMessage = bmscan.convert(inMsg);
-    //both candebug and debug must be 1 to send the 'debug' flag
-    //2nd argument is can channel. 
-    bms.decodecan(modifiedMessage, 1, candebug&debug); // do  BMS if ids are ones identified to be modules
+    // both candebug and debug must be 1 to send the 'debug' flag
+    // 2nd argument is can channel.
+    bms.decodecan(modifiedMessage, 1, candebug & debug); // do  BMS if ids are ones identified to be modules
   }
   if (inMsg.id > 0x80000600 && inMsg.id < 0x80000800) // THis is how BMWs read temps. Not implemented for Outlander
   {
     BMS_CAN_MESSAGE modifiedMessage = bmscan.convert(inMsg);
-    bms.decodetemp(modifiedMessage, 1, candebug&debug);
+    bms.decodetemp(modifiedMessage, 1, candebug & debug);
   }
 
   if (inMsg.id == 0x527)
@@ -411,14 +418,10 @@ static void receivedFiltered(const CANMessage &inMsg)
     long wh = inMsg.data[2] + (inMsg.data[3] << 8) + (inMsg.data[4] << 16) + (inMsg.data[5] << 24);
     kilowatthours = wh / 1000.0f;
   }
-  else if (inMsg.id == 0x02)
-  {
-    inverterStatus = inMsg.data[0];
-  }
-  // canio
   else if (inMsg.id == 0x01)
   {
-    inverterInDrive = inMsg.data[1] & 0x80 == 0x80;
+    inverterTemp    = inMsg.data[0] | (inMsg.data[1] << 8);
+    motorTemp       = inMsg.data[2] | (inMsg.data[3] << 8);
   }
   // chademo
   else if (inMsg.id == 0x354 && inMsg.data[0] == 0x01)
@@ -433,19 +436,28 @@ static void receivedFiltered(const CANMessage &inMsg)
       Serial.print("Setting max current ");
       Serial.println(settings.chargecurrentmax);
     }
-  }else{
+  }
+  else
+  {
     BMS_CAN_MESSAGE modifiedMessage = bmscan.convert(inMsg);
     charger.handleIncomingCAN(modifiedMessage);
-    evse_duty = charger.evse_duty;//HACK to make the Web service run
+    evse_duty = charger.evse_duty; // HACK to make the Web service run
   }
 }
 
 void loop()
 {
 
-  canread(DEFAULT_CAN_INTERFACE_INDEX, 0);
-  //canread(settings.secondBatteryCanIndex, 0);
-  bmscan.can1->dispatchReceivedMessage();
+  canread(DEFAULT_CAN_INTERFACE_INDEX);
+
+  //bmscan.can1->dispatchReceivedMessage();
+
+  if (crankSeen == false){
+    if (CRANK_IN == HIGH){
+      SERIALCONSOLE.println("Crank seen.");
+      digitalWrite(OUT_NEG_CONTACTOR, HIGH);
+    }
+  }
 
   if (Serial.available() > 0)
   {
@@ -532,6 +544,20 @@ void loop()
       bmsstatus = Charge;
     }
 
+    //If the car's in drive, and the motor or inverter are getting too hot
+    //turn on the fan.
+    if (inverterTemp > settings.inverterTempSetpoint ||
+        motorTemp > settings.motorTempSetpoint){
+      digitalWrite(OUT_FAN, HIGH);
+    }
+
+    //avoid hysteresis by setting the off signal to be lower than 
+    //the on signal.
+    if (inverterTemp <= settings.inverterTempSetpoint - settings.inverterTempHys  ||
+        motorTemp <= settings.motorTempSetpoint - settings.motorTempHys){
+      digitalWrite(OUT_FAN, LOW);
+    }
+
     break;
 
   case (Charge):
@@ -611,22 +637,25 @@ void loop()
     updateSOC();
     currentlimit();
     sendStatusMessages();
-
-    if (cellspresent == 0 && millis() > 3000)
+    if (cellspresent == 0 && millis() > 5000)
     {
       cellspresent = bms.seriescells(); // set amount of connected cells, might need delay
       bms.setSensors(settings.IgnoreTemp, settings.IgnoreVolt, settings.TempConv, settings.TempOff);
     }
     else
     {
-      if (cellspresent != bms.seriescells() || cellspresent != (settings.Scells * settings.Pstrings)) // detect a fault in cells detected
+      if (cellspresent != (settings.Scells * settings.Pstrings)) // detect a fault in cells detected
       {
         if (debug != 0)
         {
           SERIALCONSOLE.println("  ");
-          SERIALCONSOLE.print("   !!! Series Cells Fault !!!");
-          SERIALCONSOLE.println("  ");
+          SERIALCONSOLE.print("   !!! Series Cells Fault :");
+          SERIALCONSOLE.print(cellspresent);
+          SERIALCONSOLE.print(" cells found,  ");
+          SERIALCONSOLE.print((settings.Scells * settings.Pstrings));
+          SERIALCONSOLE.println(" expected  ");
         }
+        cellspresent = bms.seriescells();
         bmsstatus = Error;
         ErrorReason = ErrorReason | 0x04;
       }
@@ -654,45 +683,48 @@ void loop()
     resetwdog();
   }
   if (millis() - cleartime > 5000)
+  {
+    bms.clearmodules(); // should this be here?
+    if (bms.checkcomms())
     {
-      bms.clearmodules(); // should this be here?
-      if (bms.checkcomms())
+      // no missing modules
+      /*
+        SERIALCONSOLE.println("  ");
+        SERIALCONSOLE.print(" ALL OK NO MODULE MISSING :) ");
+        SERIALCONSOLE.println("  ");
+      */
+      if (bmsstatus == Error)
       {
-        // no missing modules
-        /*
-          SERIALCONSOLE.println("  ");
-          SERIALCONSOLE.print(" ALL OK NO MODULE MISSING :) ");
-          SERIALCONSOLE.println("  ");
-        */
-        if (bmsstatus == Error)
-        {
-          bmsstatus = Boot;
-        }
-        ErrorReason = ErrorReason & ~0x08;
+        bmsstatus = Boot;
       }
-      else
-      {
-        // missing module
-        if (debug != 0)
-        {
-          SERIALCONSOLE.println("  ");
-          SERIALCONSOLE.print("   !!! MODULE MISSING !!!");
-          SERIALCONSOLE.println("  ");
-        }
-        bmsstatus = Error;
-        ErrorReason = ErrorReason | 0x08;
-      }
-      cleartime = millis();
+      ErrorReason = ErrorReason & ~0x08;
     }
+    else
+    {
+      // missing module
+      if (debug != 0)
+      {
+        SERIALCONSOLE.println("  ");
+        SERIALCONSOLE.print(MAX_MODULE_ADDR - bms.getNumModules());
+        SERIALCONSOLE.print(" of ");
+        SERIALCONSOLE.print(MAX_MODULE_ADDR);
+        SERIALCONSOLE.print(" MODULES MISSING !!!");
+        SERIALCONSOLE.println("  ");
+      }
+      bmsstatus = Error;
+      ErrorReason = ErrorReason | 0x08;
+    }
+    cleartime = millis();
+  }
   if (millis() - looptime1 > settings.chargerspd)
-    {
-      looptime1 = millis();
+  {
+    looptime1 = millis();
 
-      if (bmsstatus == Charge)
-      {
-        charger.sendChargeMsg(msg, chargecurrent);
-      }
+    if (bmsstatus == Charge)
+    {
+      charger.sendChargeMsg(msg, chargecurrent);
     }
+  }
 
   bmsWebServer.execute();
 } // end loop()
@@ -835,12 +867,12 @@ void printbmsstat()
   SERIALCONSOLE.print("  ");
   SERIALCONSOLE.print(cellspresent);
   SERIALCONSOLE.println();
-  SERIALCONSOLE.print("Out:");
+  SERIALCONSOLE.print("FAN:");
   SERIALCONSOLE.print(digitalRead(OUT_FAN));
   // SERIALCONSOLE.print(digitalRead(OUT3));
   // SERIALCONSOLE.print(digitalRead(OUT4));
 
-  SERIALCONSOLE.print(" In:");
+  SERIALCONSOLE.print("PP Detect:");
   SERIALCONSOLE.print(digitalRead(AC_PRESENT));
   if (bmsstatus == Charge)
   {
@@ -885,7 +917,7 @@ void SOCcharged(int y)
 void sendStatusMessages() // communication with Victron system over CAN
 {
   /*Send status messages over can*/
-
+  delay(2);
   msg.id = 0x351;
   msg.len = 8;
   msg.buf[0] = lowByte(uint16_t((settings.ChargeVsetpoint * settings.Scells) * 10));
@@ -898,7 +930,7 @@ void sendStatusMessages() // communication with Victron system over CAN
   msg.buf[7] = highByte(uint16_t((settings.DischVsetpoint * settings.Scells) * 10));
 
   bmscan.write(msg, settings.veCanIndex);
-
+  delay(2);
   msg.id = 0x355;
   msg.len = 8;
   if (SOCoverride != -1)
@@ -933,7 +965,7 @@ void sendStatusMessages() // communication with Victron system over CAN
   }
 
   bmscan.write(msg, settings.veCanIndex);
-
+  delay(2);
   msg.id = 0x356;
   msg.len = 8;
   msg.buf[0] = lowByte(uint16_t(bms.getPackVoltage() * 100));
@@ -958,7 +990,7 @@ void sendStatusMessages() // communication with Victron system over CAN
   msg.buf[6] = bmsWarning[2]; // Internal Failure | High Charge current
   msg.buf[7] = bmsWarning[3]; // Cell Imbalance
   bmscan.write(msg, settings.veCanIndex);
-
+  delay(2);
   if (balancecells == 1)
   {
     if (bms.getLowCellVolt() + settings.balanceHyst < bms.getHighCellVolt())
@@ -1046,7 +1078,7 @@ void menu()
 {
 
   incomingByte = Serial.read(); // read the incoming byte:
-  Serial.println(incomingByte);
+
   if (menuload == 4)
   {
     switch (incomingByte)
@@ -1984,24 +2016,21 @@ void menu()
 }
 
 // ID offset is only applied to battery module frames
-void canread(int canInterfaceOffset, int idOffset)
-{
+void canread(int canInterfaceOffset)
+{ 
+
   while (bmscan.read(inMsg, canInterfaceOffset))
   {
-    if (canInterfaceOffset == settings.veCanIndex){
-      SERIALCONSOLE.print(canInterfaceOffset);
-      SERIALCONSOLE.print(" : ");
-      SERIALCONSOLE.println(inMsg.id);
-    }
-
+    SERIALCONSOLE.println("CAN Received");
     if (inMsg.id > 0x600 && inMsg.id < 0x800) // do mitsubishi magic if ids are ones identified to be modules
-    { 
-      //msg, can channel, debug flag (candebug and debug must both be 1 to set debug flag to 1)
-      bms.decodecan(inMsg, 0, candebug&debug); // do  BMS if ids are ones identified to be modules
-    }
-    if (inMsg.id > 0x80000600 && inMsg.id < 0x80000800) // THis is how BMWs read temps. Not implemented for Outlander
     {
-      bms.decodetemp(inMsg, 0, candebug&debug); // do  BMS if ids are ones identified to be modules
+      SERIALCONSOLE.println("READING BMS CAN");
+      // msg, can channel, debug flag (candebug and debug must both be 1 to set debug flag to 1)
+      bms.decodecan(inMsg, 0, candebug & debug); // do  BMS if ids are ones identified to be modules
+    }
+    if (inMsg.id > 0x600 && inMsg.id < 0x800) // THis is how BMWs read temps. Not implemented for Outlander
+    {
+      bms.decodetemp(inMsg, 0, candebug & debug); // do  BMS if ids are ones identified to be modules
     }
 
     if (candebug == 1)
@@ -2041,15 +2070,8 @@ void currentlimit()
     discurrent = 0;
     chargecurrent = 0;
   }
-  /*
-    settings.PulseCh = 600; //Peak Charge current in 0.1A
-    settings.PulseChDur = 5000; //Ms of discharge pulse derating
-    settings.PulseDi = 600; //Peak Charge current in 0.1A
-    settings.PulseDiDur = 5000; //Ms of discharge pulse derating
-  */
   else
   {
-
     /// Start at no derating///
     discurrent = settings.discurrentmax;
     int maxchargingcurrent;
@@ -2077,21 +2099,15 @@ void currentlimit()
     {
       chargecurrent = 0;
     }
-    if (bms.getHighCellVolt() > settings.OverVSetpoint)
-    {
-      chargecurrent = 0;
-    }
     if (bms.getLowCellVolt() < settings.UnderVSetpoint || bms.getLowCellVolt() < settings.DischVsetpoint)
     {
       discurrent = 0;
     }
 
     // Modifying discharge current///
-
     if (discurrent > 0)
     {
       // Temperature based///
-
       if (bms.getHighTemperature() > settings.DisTSetpoint)
       {
         discurrent = discurrent - map(bms.getHighTemperature(), settings.DisTSetpoint, settings.OverTSetpoint, 0, settings.discurrentmax);
@@ -2132,10 +2148,10 @@ void currentlimit()
   // extra safety check
   if (settings.chargertype == Outlander)
   {
-    uint16_t fullVoltage = uint16_t(settings.ChargeVsetpoint * settings.Scells * 10);
+    uint16_t fullVoltage = uint16_t(settings.ChargeVsetpoint * settings.Scells * settings.numberOfModules);
     if (charger.reported_voltage > fullVoltage)
     {
-      //      chargecurrent = 0;
+      chargecurrent = 0;
     }
   }
 
@@ -2163,7 +2179,7 @@ void resetISACounters()
   msg.buf[5] = 0x00;
   msg.buf[6] = 0x00;
   msg.buf[7] = 0x00;
-  bmscan.write(msg, settings.veCanIndex);
+  bmscan.write(msg, settings.secondBatteryCanIndex);
 }
 
 void resetwdog()
@@ -2173,4 +2189,3 @@ void resetwdog()
   interrupts();
 }
 ////////END///////////
-  

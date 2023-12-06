@@ -36,8 +36,8 @@ function setValue(id, value) {
 }
 
 function updateText(key, data) {
-		if (key == 'status') {
-			setValue('mode', data.replace('"', ""));
+	if (key == 'status') {
+		setValue('mode', data.replace('"', ""));
 		if (data == 'Charge') {
 			show('outlander-charger')
 			show('chargeContainer');
@@ -53,8 +53,6 @@ function updateText(key, data) {
 			setValue('inverterStatus', "Off");
 
 		}
-
-		
 	} else if (key == 'minVolt') {
 		setValue('celllow', Math.round(data * 1000));
 	} else if (key == 'maxVolt') {

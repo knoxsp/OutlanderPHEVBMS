@@ -128,20 +128,22 @@ void BMSModuleManager::decodecan(BMS_CAN_MESSAGE &msg, int canChannel, int debug
       if (CMU == 2){//The ID of module 10
         CMU = 10;
       }
-      if (CMU == 5){//the id of module 11
+      else if (CMU == 5){//the id of module 11
         CMU = 11;
+      }
+      else{
+        return;
       }
     }
 
   }
 
-  if (debug == 1)
-  {
-    Serial.print(CMU);
-    Serial.print(",");
-    Serial.print(Id);
-    Serial.println();
-  }
+  
+    // Serial.print(CMU);
+    // Serial.print(",");
+    // Serial.print(Id);
+    // Serial.println();
+
   modules[CMU].setExists(true);
   modules[CMU].setReset(true);
   modules[CMU].decodecan(Id, msg);
