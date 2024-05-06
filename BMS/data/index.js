@@ -32,7 +32,11 @@ function hide(id) {
 }
 function setValue(id, value) {
 	const element = document.getElementById(id);
-	element.innerHTML = value
+	if (!!element){
+		element.innerHTML = value
+	}else{
+		console.log(`Element ${id} does not exist`)
+	}
 }
 
 function updateText(key, data) {
