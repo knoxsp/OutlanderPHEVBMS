@@ -97,6 +97,10 @@ int BMSModuleManager::seriescells()
     if (modules[y].isExisting())
     {
       spack = spack + modules[y].getscells();
+    }else{
+      // SERIALCONSOLE.print("Module ");
+      // SERIALCONSOLE.pr  int(y);
+      // SERIALCONSOLE.println(" Missing");
     }
   }
   return spack;
@@ -120,16 +124,18 @@ void BMSModuleManager::decodecan(BMS_CAN_MESSAGE &msg, int canChannel, int debug
     Id = msg.id & 0x00F;
 
     CMU = (((msg.id & 0xFF0) - 0x600) >> 4);
-
     //TODO Make this more general.
     //My pack has 2 extra CMUs with ids X and Y. 
     //Turn these into CMU Indices 10 and 11
     if (canChannel == 1){
+      //Why 6 and 12? 
+      //6 because the outlander pack doesn't report on ID 6, ONLY 1-11 (WITHOUT 6)
+      //12 because the CMUs are 1-indexed, FROM 1-12
       if (CMU == 2){//The ID of module 10
-        CMU = 10;
+        CMU = 6;
       }
       else if (CMU == 5){//the id of module 11
-        CMU = 11;
+        CMU = 12;
       }
       else{
         return;
@@ -700,25 +706,25 @@ void BMSModuleManager::printAllCSV(unsigned long timestamp, float current, int S
   {
     if (modules[y].isExisting())
     {
-      Serial2.print(timestamp);
-      Serial2.print(",");
-      Serial2.print(current, 0);
-      Serial2.print(",");
-      Serial2.print(SOC);
-      Serial2.print(",");
-      Serial2.print(y);
-      Serial2.print(",");
+      SERIALCONSOLE.print(timestamp);
+      SERIALCONSOLE.print(",");
+      SERIALCONSOLE.print(current, 0);
+      SERIALCONSOLE.print(",");
+      SERIALCONSOLE.print(SOC);
+      SERIALCONSOLE.print(",");
+      SERIALCONSOLE.print(y);
+      SERIALCONSOLE.print(",");
       for (int i = 0; i < 8; i++)
       {
-        Serial2.print(modules[y].getCellVoltage(i));
-        Serial2.print(",");
+        SERIALCONSOLE.print(modules[y].getCellVoltage(i));
+        SERIALCONSOLE.print(",");
       }
-      Serial2.print(modules[y].getTemperature(0));
-      Serial2.print(",");
-      Serial2.print(modules[y].getTemperature(1));
-      Serial2.print(",");
-      Serial2.print(modules[y].getTemperature(2));
-      Serial2.println();
+      SERIALCONSOLE.print(modules[y].getTemperature(0));
+      SERIALCONSOLE.print(",");
+      SERIALCONSOLE.print(modules[y].getTemperature(1));
+      SERIALCONSOLE.print(",");
+      SERIALCONSOLE.print(modules[y].getTemperature(2));
+      SERIALCONSOLE.println();
     }
   }
 }

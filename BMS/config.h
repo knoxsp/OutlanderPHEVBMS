@@ -89,6 +89,7 @@ typedef struct
   int ncur;
   int chargertype;
   int chargerspd;
+  int bmsspeed;
   uint16_t triptime;
   uint16_t CurDead;
   float DisTaper;

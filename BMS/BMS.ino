@@ -57,13 +57,14 @@ This version of SimpBMS has been modified as the Space Balls edition utilising t
 #include "BMSCan.h"
 // How do make it so that we don't have to include each charger individually?
 #include "OutlanderCharger.h"
+#include "Kangoo36.h"
 
 #include "BMSWebServer.h"
 #include <esp_task_wdt.h>
 #include <SPIFFS.h>
 
 #define CPU_REBOOT (ESP.restart());
-#define WDT_TIMEOUT 3
+#define WDT_TIMEOUT 5
 #define HOSTNAME "BALLSBMS"
 
 BMSModuleManager bms;
@@ -102,8 +103,6 @@ byte bmsstatus = 0;
 #define NoCharger 0
 #define Outlander 1
 
-bool secondPackFound = false;
-
 bool crankSeen = false;
 
 int Discharge;
@@ -140,7 +139,7 @@ int inverterTemp;
 int motorTemp;
 bool inverterInDrive = false;
 bool rapidCharging = false;
-unsigned long looptime, looptime1, looptime2, UnderTime, cleartime, chargertimer, balancetimer, OverTime = 0; // ms
+unsigned long looptime, looptime1, looptime2, bmslooptime, UnderTime, cleartime, chargertimer, balancetimer, OverTime = 0; // ms
 int sensor = 1;
 
 // Variables for SOC calc
@@ -168,7 +167,7 @@ int balancecells;
 int debugdigits = 2; // amount of digits behind decimal for voltage reading
 int chargeOverride = 0;
 
-bool chargeEnabled()
+bool chargeIsEnabled()
 {
   return digitalRead(AC_PRESENT) == HIGH || chargeOverride == 1;
 }
@@ -241,6 +240,7 @@ void loadSettings()
   settings.ncur = 1;                                      // number of multiples to use for current measurement
   settings.chargertype = 2;                               // 1 - Brusa NLG5xx 2 - Volt charger 0 -No Charger
   settings.chargerspd = 100;                              // ms per message
+  settings.bmsspeed = 200;                                // ms between bms keep-alive message
   settings.CurDead = 5;                                   // mV of dead band on current sensor
   settings.ChargerDirect = 1;                             // 1 - charger is always connected to HV battery // 0 - Charger is behind the contactors
   settings.TempOff = -52;                                 // Temperature offset
@@ -262,6 +262,7 @@ BMS_CAN_MESSAGE inMsg;
 
 // TODO: How do we make this web-configurable?
 OutlanderCharger charger(bmscan, settings);
+KangooCan kangooCan(bmscan, settings);
 
 void setup()
 {
@@ -272,6 +273,8 @@ void setup()
   delay(4000); // just for easy debugging. It takes a few seconds for USB to come up properly on most OS's
 
   pinMode(AC_PRESENT, INPUT);
+  pinMode(CRANK_IN, INPUT);
+  digitalWrite(CRANK_IN, LOW);
 
   pinMode(OUT_FAN, OUTPUT); // fan relay
   digitalWrite(OUT_FAN, LOW); // disable by default
@@ -334,7 +337,7 @@ void setup()
   WiFi.setHostname(HOSTNAME);
   // Connect to Wi-Fi
   WiFi.begin("BT-JNF6TR", "qauFKtE7GVRPMh");
-  //WiFi.begin();
+  WiFi.begin();
 
   while (WiFi.status() != WL_CONNECTED) {
     Serial.print('.');
@@ -369,7 +372,7 @@ static void receivedFiltered(const CANMessage &inMsg)
 
     Serial.println(" Filtered Can ");
   }
-
+  
   if (inMsg.id > 0x600 && inMsg.id < 0x800) // do mitsubishi magic if ids are ones identified to be modules
   {
     // convert the incoming CANMessage object into a BMS_CAN_MESSAGE object so it can be used with bmscan
@@ -442,20 +445,62 @@ static void receivedFiltered(const CANMessage &inMsg)
     BMS_CAN_MESSAGE modifiedMessage = bmscan.convert(inMsg);
     charger.handleIncomingCAN(modifiedMessage);
     evse_duty = charger.evse_duty; // HACK to make the Web service run
+
+    kangooCan.handleIncomingCAN(modifiedMessage);
   }
 }
+ /*
+  This loop turns on and off dout1, dout2 and dout3 
+  every 3 seconds to test whethe
+  the outputs are working correctly
+*/
+
+// unsigned long previousMillis = 0; // Variable to store the previous time
+// const long interval = 3000; // Interval for toggling the pins (in milliseconds)
+// int state = LOW; // Initial state for the pins
+
+//  void loop(){
+//   if (millis() - looptime > 500)
+//   {
+//       looptime = millis();
+//       resetwdog();
+//   }
+
+//   unsigned long currentMillis = millis(); // Get the current time
+
+//   if (currentMillis - previousMillis >= interval) {
+//     // Save the last time the pin state was toggled
+//     previousMillis = currentMillis;
+
+//     // Toggle the state of the pins
+//     if (state == LOW) {
+//       state = HIGH;
+//     } else {
+//       state = LOW;
+//     }
+
+//     SERIALCONSOLE.println(state);
+//     // Set the pins to the new state
+//     digitalWrite(OUT_FAN, state);
+//     digitalWrite(OUT_DCDC_ENABLE, state);
+//     digitalWrite(OUT_NEG_CONTACTOR, state);
+//   }
+// }
 
 void loop()
 {
 
   canread(DEFAULT_CAN_INTERFACE_INDEX);
 
-  //bmscan.can1->dispatchReceivedMessage();
+  bmscan.can1->dispatchReceivedMessage();
 
   if (crankSeen == false){
-    if (CRANK_IN == HIGH){
-      SERIALCONSOLE.println("Crank seen.");
+    if (digitalRead(CRANK_IN) == LOW){
+      SERIALCONSOLE.println("Crank LOW.");
       digitalWrite(OUT_NEG_CONTACTOR, HIGH);
+      //crankSeen = true;
+    }else if(digitalRead(CRANK_IN) == HIGH){
+      // SERIALCONSOLE.println("Crank HIGH.");
     }
   }
 
@@ -481,7 +526,7 @@ void loop()
     {
       balancecells = 0;
     }
-    if (chargeEnabled() && (bms.getHighCellVolt() < (settings.ChargeVsetpoint - settings.ChargeHys))) // detect AC present for charging and check not balancing
+    if (chargeIsEnabled() && (bms.getHighCellVolt() < (settings.ChargeVsetpoint - settings.ChargeHys))) // detect AC present for charging and check not balancing
     {
       if (checkInverterInRun())
       {
@@ -519,7 +564,7 @@ void loop()
 
   case (Precharge):
     Discharge = 0;
-    if (!rapidCharging && checkInverterInRun() && chargeEnabled())
+    if (!rapidCharging && checkInverterInRun() && chargeIsEnabled())
     {
       bmsstatus = Charge;
     }
@@ -539,7 +584,7 @@ void loop()
     {
       bmsstatus = Ready;
     }
-    if (chargeEnabled() && (bms.getHighCellVolt() < (settings.ChargeVsetpoint - settings.ChargeHys))) // detect AC present for charging and check not balancing
+    if (chargeIsEnabled() && (bms.getHighCellVolt() < (settings.ChargeVsetpoint - settings.ChargeHys))) // detect AC present for charging and check not balancing
     {
       bmsstatus = Charge;
     }
@@ -587,7 +632,7 @@ void loop()
     {
       bmsstatus = RapidCharge;
     }
-    if (!chargeEnabled() || !checkInverterInRun()) // detect AC not present for charging or inverter not closed the contactors
+    if (!chargeIsEnabled() || !checkInverterInRun()) // detect AC not present for charging or inverter not closed the contactors
     {
       // send a 0 amp request to outlander
       chargecurrent = 0;
@@ -702,7 +747,7 @@ void loop()
     else
     {
       // missing module
-      if (debug != 0)
+      if (debug != 0 && (MAX_MODULE_ADDR - bms.getNumModules())>0)
       {
         SERIALCONSOLE.println("  ");
         SERIALCONSOLE.print(MAX_MODULE_ADDR - bms.getNumModules());
@@ -724,6 +769,13 @@ void loop()
     {
       charger.sendChargeMsg(msg, chargecurrent);
     }
+  }
+
+  if (millis() - bmslooptime > settings.bmsspeed)
+  {
+    bmslooptime = millis();
+
+    kangooCan.sendKeepAliveFrame(msg, bmsstatus);
   }
 
   bmsWebServer.execute();
@@ -855,7 +907,7 @@ void printbmsstat()
   }
 
   SERIALCONSOLE.print("  ");
-  if (chargeEnabled())
+  if (chargeIsEnabled())
   {
     SERIALCONSOLE.print("| AC Present |");
   }
@@ -2021,14 +2073,12 @@ void canread(int canInterfaceOffset)
 
   while (bmscan.read(inMsg, canInterfaceOffset))
   {
-    SERIALCONSOLE.println("CAN Received");
     if (inMsg.id > 0x600 && inMsg.id < 0x800) // do mitsubishi magic if ids are ones identified to be modules
     {
-      SERIALCONSOLE.println("READING BMS CAN");
       // msg, can channel, debug flag (candebug and debug must both be 1 to set debug flag to 1)
       bms.decodecan(inMsg, 0, candebug & debug); // do  BMS if ids are ones identified to be modules
     }
-    if (inMsg.id > 0x600 && inMsg.id < 0x800) // THis is how BMWs read temps. Not implemented for Outlander
+    if (inMsg.id > 0x600 && inMsg.id < 0x800) // Read temps from the outlander
     {
       bms.decodetemp(inMsg, 0, candebug & debug); // do  BMS if ids are ones identified to be modules
     }

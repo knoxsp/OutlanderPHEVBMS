@@ -10,7 +10,7 @@ extern int SOC;
 extern byte bmsstatus;
 extern byte evse_duty;
 extern double amphours;
-extern bool chargeEnabled();
+extern bool chargeIsEnabled();
 extern int chargecurrent;
 extern void resetISACounters();
 extern float currentact;
@@ -93,7 +93,7 @@ void BMSWebServer::setup()
 //    json["chargerCurrent"] = outlanderCharger.reported_dc_current;
     json["requestedchargecurrent.val"] = chargecurrent;
 //    json["contactorStatus"] = bms.contactorsClosed();
-    json["chargeEnabled"] = chargeEnabled();
+    json["chargeEnabled"] = chargeIsEnabled();
 //    json["chargeOverride"] = io.getChargeOverride();
     json["ahUsed"] = amphours;
     json["soc"] = SOC;
