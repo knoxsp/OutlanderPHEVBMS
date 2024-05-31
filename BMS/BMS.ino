@@ -76,11 +76,11 @@ BMSWebServer bmsWebServer(settings, bms);
 int firmver = 230720;
 
 // Simple BMS V2 wiring//
-const int AC_PRESENT = 34;  // DIN0 (Digital In 0) - high active //AC Present
-const int CRANK_IN = 35;    // DIN1 - high active //repurpose for Crank signal
+const int AC_PRESENT = 34;  // DIN1 (Digital In 1) - high active //AC Present
+const int CRANK_IN = 35;    // DIN2 - high active //repurpose for Crank signal
 const int OUT_FAN = 32;     // DOUT1 - switched ground. high active // for fan
 const int OUT_DCDC_ENABLE = 33; // DOUT2 - switched ground. high active //DC_DC Enable
-const int OUT_NEG_CONTACTOR = 25; // DOUT3 - switched ground. high active // NEG CONTACTOR
+const int OUT_NEG_CONTACTOR = 22; // DOUT7 - switched ground. high active // NEG CONTACTOR
 const int led = 2;
 const int BMBfault = 11;
 
@@ -331,11 +331,12 @@ void setup()
     Serial.println("An Error has occurred while mounting SPIFFS");
     return;
   }
-  // AP and Station Mode
+  //AP and Station Mode
   WiFi.mode(WIFI_AP_STA);
 
   WiFi.setHostname(HOSTNAME);
-  // Connect to Wi-Fi
+  
+  //Connect to Wi-Fi
   WiFi.begin("BT-JNF6TR", "qauFKtE7GVRPMh");
   WiFi.begin();
 
@@ -449,43 +450,7 @@ static void receivedFiltered(const CANMessage &inMsg)
     kangooCan.handleIncomingCAN(modifiedMessage);
   }
 }
- /*
-  This loop turns on and off dout1, dout2 and dout3 
-  every 3 seconds to test whethe
-  the outputs are working correctly
-*/
 
-// unsigned long previousMillis = 0; // Variable to store the previous time
-// const long interval = 3000; // Interval for toggling the pins (in milliseconds)
-// int state = LOW; // Initial state for the pins
-
-//  void loop(){
-//   if (millis() - looptime > 500)
-//   {
-//       looptime = millis();
-//       resetwdog();
-//   }
-
-//   unsigned long currentMillis = millis(); // Get the current time
-
-//   if (currentMillis - previousMillis >= interval) {
-//     // Save the last time the pin state was toggled
-//     previousMillis = currentMillis;
-
-//     // Toggle the state of the pins
-//     if (state == LOW) {
-//       state = HIGH;
-//     } else {
-//       state = LOW;
-//     }
-
-//     SERIALCONSOLE.println(state);
-//     // Set the pins to the new state
-//     digitalWrite(OUT_FAN, state);
-//     digitalWrite(OUT_DCDC_ENABLE, state);
-//     digitalWrite(OUT_NEG_CONTACTOR, state);
-//   }
-// }
 
 void loop()
 {
@@ -494,15 +459,15 @@ void loop()
 
   bmscan.can1->dispatchReceivedMessage();
 
-  if (crankSeen == false){
-    if (digitalRead(CRANK_IN) == LOW){
-      SERIALCONSOLE.println("Crank LOW.");
-      digitalWrite(OUT_NEG_CONTACTOR, HIGH);
-      //crankSeen = true;
-    }else if(digitalRead(CRANK_IN) == HIGH){
-      // SERIALCONSOLE.println("Crank HIGH.");
-    }
-  }
+   if (crankSeen == false){
+     if (digitalRead(CRANK_IN) == LOW){
+       SERIALCONSOLE.println("Crank LOW.");
+       digitalWrite(OUT_NEG_CONTACTOR, HIGH);
+       crankSeen = true;
+     }else if(digitalRead(CRANK_IN) == HIGH){
+       // SERIALCONSOLE.println("Crank HIGH.");
+     }
+   }
 
   if (Serial.available() > 0)
   {
