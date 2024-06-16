@@ -7,7 +7,7 @@ class KangooCan
 {
   public:
     KangooCan(BMSCan& bmscan, EEPROMSettings& settings);
-    void sendKeepAliveFrame(BMS_CAN_MESSAGE &msg, byte &status);
+    void sendKeepAliveFrame(BMS_CAN_MESSAGE &msg, uint8_t &status);
     void sendIsoTpMessage(const uint8_t *data, uint8_t length);
     void receiveIsoTpMessage(uint32_t expectedCanId, uint8_t *data, uint8_t &length);
     bool ProcessISOTPResponse(const uint8_t* data);

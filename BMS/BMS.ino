@@ -80,11 +80,12 @@ const int AC_PRESENT = 34;  // DIN1 (Digital In 1) - high active //AC Present
 const int CRANK_IN = 35;    // DIN2 - high active //repurpose for Crank signal
 const int OUT_FAN = 32;     // DOUT1 - switched ground. high active // for fan
 const int OUT_DCDC_ENABLE = 33; // DOUT2 - switched ground. high active //DC_DC Enable
-const int OUT_NEG_CONTACTOR = 22; // DOUT7 - switched ground. high active // NEG CONTACTOR
+const int OUT_NEG_CONTACTOR = 21; // DOUT6 - switched ground. high active // NEG CONTACTOR
+//const int OUT_NEG_CONTACTOR = 21; // DOUT7 - switched ground. high active // NEG CONTACTOR
 const int led = 2;
 const int BMBfault = 11;
 
-byte bmsstatus = 0;
+uint8_t bmsstatus = 0;
 // bms status values
 #define Boot 0
 #define Ready 1
@@ -122,7 +123,7 @@ unsigned char mes[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 
 long unsigned int rxId;
 unsigned char len = 0;
-byte rxBuf[8];
+uint8_t rxBuf[8];
 char msgString[128]; // Array to store serial string
 uint32_t inbox;
 int32_t CANmilliamps;
@@ -134,7 +135,7 @@ int value;
 float currentact, RawCur;
 float ampsecond;
 unsigned long lasttime;
-byte inverterStatus;
+uint8_t inverterStatus;
 int inverterTemp;
 int motorTemp;
 bool inverterInDrive = false;
@@ -274,7 +275,6 @@ void setup()
 
   pinMode(AC_PRESENT, INPUT);
   pinMode(CRANK_IN, INPUT);
-  digitalWrite(CRANK_IN, LOW);
 
   pinMode(OUT_FAN, OUTPUT); // fan relay
   digitalWrite(OUT_FAN, LOW); // disable by default
@@ -286,12 +286,19 @@ void setup()
   digitalWrite(OUT_DCDC_ENABLE, HIGH); // enable by default
 
   pinMode(led, OUTPUT);
-  // enable WDT
-  noInterrupts();                       // don't allow interrupts while setting up WDOG
-  esp_task_wdt_init(WDT_TIMEOUT, true); // enable panic so ESP32 restarts
+  // // enable WDT
+  noInterrupts();  // don't allow interrupts while setting up WDOG
+
+  // esp_task_wdt_init(WDT_TIMEOUT, true)
+  esp_task_wdt_config_t wdtConfig = {
+    .timeout_ms = WDT_TIMEOUT * 1000, // Convert seconds to milliseconds
+    .trigger_panic = true // Enable panic so ESP32 restarts
+  };
+  // Initialize Watchdog Timer with the configura
+  esp_task_wdt_init(&wdtConfig); // enable panic so ESP32 restarts
   esp_task_wdt_add(NULL);               // add current thread to WDT watch
   interrupts();
-  /////////////////
+  // /////////////////
   EEPROM.begin(sizeof(settings));
   EEPROM.get(0, settings);
   if (settings.version != EEPROM_VERSION)
@@ -325,35 +332,35 @@ void setup()
   bmscan.begin(500000, settings.veCanIndex);
   Logger::setLoglevel(Logger::Off); // Debug = 0, Info = 1, Warn = 2, Error = 3, Off = 4
 
-  // Initialize SPIFFS
-  if (!SPIFFS.begin(true))
-  {
-    Serial.println("An Error has occurred while mounting SPIFFS");
-    return;
-  }
-  //AP and Station Mode
-  WiFi.mode(WIFI_AP_STA);
+  // // Initialize SPIFFS
+  // if (!SPIFFS.begin(true))
+  // {
+  //   Serial.println("An Error has occurred while mounting SPIFFS");
+  //   return;
+  // }
+  // //AP and Station Mode
+  // WiFi.mode(WIFI_AP_STA);
 
-  WiFi.setHostname(HOSTNAME);
+  // WiFi.setHostname(HOSTNAME);
   
-  //Connect to Wi-Fi
-  WiFi.begin("BT-JNF6TR", "qauFKtE7GVRPMh");
-  WiFi.begin();
+  // //Connect to Wi-Fi
+  // WiFi.begin("BT-JNF6TR", "qauFKtE7GVRPMh");
+  // WiFi.begin();
 
-  while (WiFi.status() != WL_CONNECTED) {
-    Serial.print('.');
-    delay(1000);
-  }
+  // while (WiFi.status() != WL_CONNECTED) {
+  //   Serial.print('.');
+  //   delay(1000);
+  // }
 
-  Serial.println(WiFi.localIP());
+  // Serial.println(WiFi.localIP());
 
-  bmsWebServer.setup();
-  digitalWrite(led, HIGH);
+  // bmsWebServer.setup();
+  // digitalWrite(led, HIGH);
 
-  bms.setPstrings(settings.Pstrings);
-  bms.setSensors(settings.IgnoreTemp, settings.IgnoreVolt, settings.TempConv, settings.TempOff);
+  // bms.setPstrings(settings.Pstrings);
+  // bms.setSensors(settings.IgnoreTemp, settings.IgnoreVolt, settings.TempConv, settings.TempOff);
 
-  cleartime = millis();
+  // cleartime = millis();
 }
 
 static void receivedFiltered(const CANMessage &inMsg)
@@ -450,7 +457,6 @@ static void receivedFiltered(const CANMessage &inMsg)
     kangooCan.handleIncomingCAN(modifiedMessage);
   }
 }
-
 
 void loop()
 {
@@ -743,7 +749,7 @@ void loop()
     kangooCan.sendKeepAliveFrame(msg, bmsstatus);
   }
 
-  bmsWebServer.execute();
+  // bmsWebServer.execute();
 } // end loop()
 
 void alarmupdate()
@@ -2065,7 +2071,7 @@ void canread(int canInterfaceOffset)
       }
       else
       {
-        for (byte i = 0; i < inMsg.len; i++)
+        for (uint8_t i = 0; i < inMsg.len; i++)
         {
           sprintf(msgString, ", 0x%.2X", inMsg.buf[i]);
           Serial.print(msgString);

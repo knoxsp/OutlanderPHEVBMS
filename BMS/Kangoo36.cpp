@@ -20,7 +20,7 @@ KangooCan::KangooCan(BMSCan& b, EEPROMSettings& s) : bmscan(b), settings{s}
 {
 };
 
-void KangooCan::sendKeepAliveFrame(BMS_CAN_MESSAGE &msg, byte &status)
+void KangooCan::sendKeepAliveFrame(BMS_CAN_MESSAGE &msg, uint8_t &status)
 {  
     //Default to '0s' so we can check later if it has changed.
     uint8_t defautMsg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
