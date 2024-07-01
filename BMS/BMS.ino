@@ -80,11 +80,16 @@ const int AC_PRESENT = 34;  // DIN1 (Digital In 1) - high active //AC Present
 const int CRANK_IN = 35;    // DIN2 - high active //repurpose for Crank signal
 const int OUT_FAN = 32;     // DOUT1 - switched ground. high active // for fan
 const int OUT_DCDC_ENABLE = 33; // DOUT2 - switched ground. high active //DC_DC Enable
-const int OUT_NEG_CONTACTOR = 22; // DOUT7 - switched ground. high active // NEG CONTACTOR
+
+const int OUT_NEG_CONTACTOR = 21; // DOUT7 (v1.0) - switched ground. high active // NEG CONTACTOR
+//const int OUT_NEG_CONTACTOR = 22; // DOUT6 (v1.0) - switched ground. high active // NEG CONTACTOR
 const int led = 2;
 const int BMBfault = 11;
 
-byte bmsstatus = 0;
+const int ppInputPin = 36;  // PP analog input pin
+
+uint8_t bmsstatus = 0;
+
 // bms status values
 #define Boot 0
 #define Ready 1
@@ -286,9 +291,14 @@ void setup()
   digitalWrite(OUT_DCDC_ENABLE, HIGH); // enable by default
 
   pinMode(led, OUTPUT);
-  // enable WDT
-  noInterrupts();                       // don't allow interrupts while setting up WDOG
-  esp_task_wdt_init(WDT_TIMEOUT, true); // enable panic so ESP32 restarts
+
+  analogReadResolution(12);  // Set ADC resolution to 12 bits
+  analogSetAttenuation(ADC_11db);  // Set attenuation (0db, 2.5db, 6db, 11db)
+  // // enable WDT
+  noInterrupts();  // don't allow interrupts while setting up WDOG
+
+  esp_task_wdt_init(WDT_TIMEOUT, true);
+
   esp_task_wdt_add(NULL);               // add current thread to WDT watch
   interrupts();
   /////////////////
@@ -326,10 +336,15 @@ void setup()
   Logger::setLoglevel(Logger::Off); // Debug = 0, Info = 1, Warn = 2, Error = 3, Off = 4
 
   // Initialize SPIFFS
-  if (!SPIFFS.begin(true))
-  {
-    Serial.println("An Error has occurred while mounting SPIFFS");
-    return;
+  if (!SPIFFS.begin(true)) {
+    Serial.println("SPIFFS Mount Failed, Formatting...");
+    if (SPIFFS.format()) {
+      Serial.println("SPIFFS Formatted Successfully");
+    } else {
+      Serial.println("SPIFFS Format Failed");
+    }
+  } else {
+    Serial.println("SPIFFS Mounted Successfully");
   }
   //AP and Station Mode
   WiFi.mode(WIFI_AP_STA);
@@ -454,6 +469,10 @@ static void receivedFiltered(const CANMessage &inMsg)
 
 void loop()
 {
+
+  // int ppValue = analogRead(ppInputPin);
+  // Serial.print("PP Analog Value: ");
+  // Serial.print(ppValue);
 
   canread(DEFAULT_CAN_INTERFACE_INDEX);
 

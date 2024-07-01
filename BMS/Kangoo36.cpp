@@ -69,6 +69,14 @@ void KangooCan::handleIncomingCAN(BMS_CAN_MESSAGE &inMsg)
 void KangooCan::handleFrame155(const uint8_t* data) {
     this->stateOfCharge = (float) ((data[4] << 8) + data[5]) * 0.0025;
     this->maxCharging = data[0] * 300;
+
+    // Reset timeout counter to the full timeout value
+    //This is from Jamie's code. 
+    //timeoutCounter = Param::GetInt(Param::BMS_Timeout) * 10;
+
+    this->current = (float) ((((data[1] << 8) & 0x0F) + data[2]) * 0.25) - 500;
+
+    this->packVoltage = (float) ((data[6] << 8) + data[7]) / 2;
 }
 
 void KangooCan::handleFrame424(const uint8_t* data) {
@@ -393,7 +401,7 @@ bool KangooCan::handlePID42Frame(const uint8_t* data) {
         return true;
     } else if (data[0] == 0x2A) {
         this->cellVoltages[95] = this->cellVoltages[95] + data[1];
-        this->packVoltage = (data[2] << 8) + data[3];
+        this->fullPackVoltage = (data[2] << 8) + data[3];
         this->daigPackVoltage = (data[4] << 8) + data[5]; //? not sure what this is for
         return false;
     }
@@ -413,6 +421,7 @@ void KangooCan::printData() {
     cout << "Max Charing Rate: " << (int) this->maxCharging << "W" << endl;
     cout << "Max Input Power: " << (int) this->maxInputPower << "kW" << endl;
     cout << "Max Output Power: " << (int) this->maxOutputPower << "kW" << endl;
+    cout << "Pack Voltage: " << (float) this->packVoltage/100 << " V" << endl;
 
     cout << endl << endl;
     cout << "------ ISOTP Kangoo Data -------" << endl << endl;
@@ -434,8 +443,8 @@ void KangooCan::printData() {
     cout << "Highest Cell: " <<  (float)this->highestMilV / 100 << " V" << endl;
 
     cout << "Max Charging: " <<  this->maxChargingRaw / 10 << " kW" << endl;
-    cout << "Pack Voltage: " << (float) this->packVoltage/100 << " V" << endl;
-    cout << "Diagnostic Pack Voltage: " << (float) this->daigPackVoltage/100 << " V" << endl;
+    cout << "ISOTP Pack Voltage: " << (float) this->fullPackVoltage/100 << " V" << endl;
+    cout << "ISOTP Diagnostic Pack Voltage: " << (float) this->daigPackVoltage/100 << " V" << endl;
 
     // for (int i = 0; i < 96; i++) {
     //     cout << "Cell " <<  i << ": " << this->cellVoltages[i] << "mV" << endl;

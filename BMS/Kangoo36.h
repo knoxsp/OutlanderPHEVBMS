@@ -34,14 +34,15 @@ class KangooCan
     uint16_t quickchargeCount;
     uint16_t normalchargeCount;
     uint16_t fullchargeCount;
+
     uint16_t partialchargeCount;
     uint32_t totalKilometers;
     uint32_t lowestMilV;
     uint32_t highestMilV;
     uint16_t maxChargingRaw;
     uint16_t cellVoltages[96];
-    uint16_t packVoltage;
-    uint16_t daigPackVoltage;
+    uint16_t fullPackVoltage; //ISOTP
+    uint16_t daigPackVoltage; //ISOTP
     uint16_t maxInputPowerRaw;
     uint16_t maxOutputPowerRaw;
     int32_t batteryCurrent;
@@ -53,6 +54,8 @@ class KangooCan
     float lowestCellVolt;
     float highestCellVolt;
     float remainingKHW;
+    float packVoltage;
+    float current;
 
     uint8_t lowestCellTemp;
     uint8_t highestCellTemp;

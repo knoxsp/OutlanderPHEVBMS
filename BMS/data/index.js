@@ -83,6 +83,8 @@ function updateText(key, data) {
 		setValue('usableAh', data);
 	} else if (key == 'balanceActive') {
 		setValue('balanceStatus', data);
+	} else if (key == 'packVolts') {
+		setValue('packVolts', data);
 	}
 }
 
