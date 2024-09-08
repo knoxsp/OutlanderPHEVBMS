@@ -18,9 +18,10 @@
 
 KangooCan::KangooCan(BMSCan& b, EEPROMSettings& s) : bmscan(b), settings{s}
 {
+    this->numModules = 12;
 };
 
-void KangooCan::sendKeepAliveFrame(BMS_CAN_MESSAGE &msg, byte &status)
+void KangooCan::sendKeepAliveFrame(BMS_CAN_MESSAGE &msg, uint8_t &status)
 {  
     //Default to '0s' so we can check later if it has changed.
     uint8_t defautMsg[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
@@ -28,11 +29,15 @@ void KangooCan::sendKeepAliveFrame(BMS_CAN_MESSAGE &msg, byte &status)
 
     msg.id = 0x423;
     msg.len = 8;
+    
+    // cout << "Status: " << (int) status << endl;
 
-    if (status == Drive){
+    if (status == Drive || status == Ready || status == Error){
+        // cout << "Drive / Ready " << endl;
         uint8_t driveMsg[] = {0x07, 0x1D, 0x00, 0x02, 0x5D, 0x80, 0x5D, 0xD8};
         memcpy(msg.buf, driveMsg, 8);
     }else if (status == Charge){
+        // cout << "Charge" << endl;
         uint8_t chargeMsg[] = {0x0B, 0x1D, 0x00, 0x02, 0xB2, 0x20, 0xB2, 0xD9};
         memcpy(msg.buf, chargeMsg, 8);
     }else if (status == RapidCharge){
@@ -49,6 +54,7 @@ void KangooCan::handleIncomingCAN(BMS_CAN_MESSAGE &inMsg)
 {
   if (inMsg.id == 0x155)
   {
+
     this->handleFrame155(inMsg.buf);
   }
   if (inMsg.id == 0x424)
@@ -58,6 +64,10 @@ void KangooCan::handleIncomingCAN(BMS_CAN_MESSAGE &inMsg)
   if (inMsg.id == 0x424)
   {
     this->handleFrame424(inMsg.buf);
+  }
+  if (inMsg.id == 0x425)
+  {
+    this->handleFrame425(inMsg.buf);
   }
   else if (inMsg.id ==  0x7BB)
   {
@@ -86,6 +96,63 @@ void KangooCan::handleFrame424(const uint8_t* data) {
     this->maxInputPower = data[2] / 2;
     this->maxOutputPower = data[3] / 2;
 
+}
+
+uint16_t KangooCan::getHighVoltage(){
+    return this->packVoltage;
+}
+
+
+uint16_t KangooCan::getLowVoltage(){
+    return this->packVoltage;
+}
+
+float KangooCan::getPackVoltage(){
+    return this->packVoltage;
+}
+
+int16_t KangooCan::getHighTemperature(){
+    return this->batteryTemperature;
+}
+
+int16_t KangooCan::getLowTemperature(){
+    return this->batteryTemperature;
+}
+
+int16_t KangooCan::getAvgTemperature(){
+    return this->batteryTemperature;
+}
+
+uint8_t KangooCan::getLowestCellTemp(){
+    return this->lowestCellTemp;
+}
+
+uint8_t KangooCan::getHighestCellTemp(){
+    return this->highestCellTemp;
+}
+
+float KangooCan::getHighCellVolt(){
+    return this->highestCellVolt;
+}
+
+float KangooCan::getLowCellVolt(){
+    return this->lowestCellVolt;
+}
+
+float KangooCan::getAvgCellVolt(){
+    return (this->highestCellTemp + this->lowestCellTemp) / 2;
+}
+
+uint8_t KangooCan::getNumModules(){
+    return 12;
+}
+
+float KangooCan::getSOC(){
+    return this->stateOfCharge;
+}
+
+float KangooCan::getSOH(){
+    return this->stateOfHealth;
 }
 
 void KangooCan::handleFrame425(const uint8_t* data) {
@@ -408,43 +475,53 @@ bool KangooCan::handlePID42Frame(const uint8_t* data) {
     return false;
 }
 
+void KangooCan::printPackDetailsJson(DynamicJsonDocument &root)
+{
+    uint8_t faults;
+    uint8_t alerts;
+    int cellNum = 0;
+
+    JsonObject packDetailsNode = root.createNestedObject();
+    packDetailsNode["pack_voltage"] = this->getPackVoltage();
+}
+
 void KangooCan::printData() {
     //not sure about comented out values 
     cout << "------ Free Frames Data --------" << endl << endl;
     cout << "SoC: " << this->stateOfCharge << "%" << endl;
     cout << "SoH: " << this->stateOfHealth << "%" << endl;
-    cout << "Lowest Cell: " << this->lowestCellVolt << "V" <<endl;
+    cout << "Lowest Cell Voltage: " << this->lowestCellVolt << "V" <<endl;
     cout << "Highest Cell: " << this->highestCellVolt << "V" <<endl;
-    cout << "Remaining KWH: " << this->remainingKHW << "kWh" <<endl;
-    cout << "Highest Temp: " << (int)this->highestCellTemp << "C" << endl;
-    cout << "Lowest Temp: " << (int)this->lowestCellTemp << "C" << endl;
+    cout << "Remaining KWH Voltage: " << this->remainingKHW << "kWh" <<endl;
+    cout << "Highest Cell Temp: " << (int)this->highestCellTemp << "C" << endl;
+    cout << "Lowest Cell Temp: " << (int)this->lowestCellTemp << "C" << endl;
     cout << "Max Charing Rate: " << (int) this->maxCharging << "W" << endl;
     cout << "Max Input Power: " << (int) this->maxInputPower << "kW" << endl;
     cout << "Max Output Power: " << (int) this->maxOutputPower << "kW" << endl;
-    cout << "Pack Voltage: " << (float) this->packVoltage/100 << " V" << endl;
+    cout << "Pack Voltage: " << (float) this->packVoltage << " V" << endl;
 
-    cout << endl << endl;
-    cout << "------ ISOTP Kangoo Data -------" << endl << endl;
+    // cout << endl << endl;
+    // cout << "------ ISOTP Kangoo Data -------" << endl << endl;
 
     //cout << "AmpHours: " << (ampHoursRaw / 10000) << "?" << endl;
-    cout << "Battery Current: " << this->batteryCurrent << "mA" << endl;
-    cout << "State Of Health: " << (this->packHealthRaw / 2) << "%" << endl;
-    cout << "QuickCharge Count: " << this->quickchargeCount << endl;
-    cout << "NormalCharge Count: " << this->normalchargeCount << endl;
+    // cout << "Battery Current: " << this->batteryCurrent << "mA" << endl;
+    // cout << "State Of Health: " << (this->packHealthRaw / 2) << "%" << endl;
+    // cout << "QuickCharge Count: " << this->quickchargeCount << endl;
+    // cout << "NormalCharge Count: " << this->normalchargeCount << endl;
     //cout << "FullCharge Count: " << fullchargeCount << "?" << endl;
     //cout << "PartialCharge Count: " << partialchargeCount << "?" << endl;
     //cout << "Total Kilometers: " << totalKilometers << endl;
-    cout << "Max Input: " << (float)this->maxInputPowerRaw / 100 << " kW" << endl;
-    cout << "Max Output: " << (float)this->maxOutputPowerRaw / 100 << " kW" << endl;
+    // cout << "Max Input: " << (float)this->maxInputPowerRaw / 100 << " kW" << endl;
+    // cout << "Max Output: " << (float)this->maxOutputPowerRaw / 100 << " kW" << endl;
 
     //cout << "Battery Temperature: " << (float)batteryTemperature / 1000 << " C" << endl;
 
-    cout << "Lowest Cell: " <<  (float)this->lowestMilV / 100 << " V" << endl;
-    cout << "Highest Cell: " <<  (float)this->highestMilV / 100 << " V" << endl;
+    // cout << "Lowest Cell: " <<  (float)this->lowestMilV / 100 << " V" << endl;
+    // cout << "Highest Cell: " <<  (float)this->highestMilV / 100 << " V" << endl;
 
-    cout << "Max Charging: " <<  this->maxChargingRaw / 10 << " kW" << endl;
-    cout << "ISOTP Pack Voltage: " << (float) this->fullPackVoltage/100 << " V" << endl;
-    cout << "ISOTP Diagnostic Pack Voltage: " << (float) this->daigPackVoltage/100 << " V" << endl;
+    // cout << "Max Charging: " <<  this->maxChargingRaw / 10 << " kW" << endl;
+    // cout << "ISOTP Pack Voltage: " << (float) this->fullPackVoltage/100 << " V" << endl;
+    // cout << "ISOTP Diagnostic Pack Voltage: " << (float) this->daigPackVoltage/100 << " V" << endl;
 
     // for (int i = 0; i < 96; i++) {
     //     cout << "Cell " <<  i << ": " << this->cellVoltages[i] << "mV" << endl;

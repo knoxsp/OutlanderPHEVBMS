@@ -1,16 +1,16 @@
 #include "BMSWebServer.h"
 #include "SPIFFS.h"
+#include <EEPROM.h>
 
 AsyncWebServer server(80);
-AsyncWebSocket ws("/ws");
+AsyncWebSocket webserver("/webserver");
 AsyncEventSource events("/events");
 
 // move from global
-extern int SOC;
-extern byte bmsstatus;
-extern byte evse_duty;
+extern uint8_t bmsstatus;
+extern uint8_t evse_duty;
 extern double amphours;
-extern bool chargeIsEnabled();
+extern bool checkPPDetect(uint8_t index);
 extern int chargecurrent;
 extern void resetISACounters();
 extern float currentact;
@@ -23,28 +23,29 @@ extern float currentact;
 #define RapidCharge 5
 #define Error 6
 
-BMSWebServer::BMSWebServer(EEPROMSettings &s, BMSModuleManager &b) : settings{s}, bms{b}
+
+BMSWebServer::BMSWebServer(EEPROMSettings &s, KangooCan &b) : settings{s}, bms{b}
 {
 }
 
 AsyncWebSocket &BMSWebServer::getWebSocket()
 {
-  return ws;
+  return webserver;
 }
 void BMSWebServer::execute()
 {
-  ws.cleanupClients();
+  webserver.cleanupClients();
 }
 
 void BMSWebServer::broadcast(const char *message)
 {
-  ws.printfAll(message);
+  webserver.printfAll(message);
 }
 
 void BMSWebServer::setup()
 {
-  // ws.onEvent(onWsEvent);
-  server.addHandler(&ws);
+  // webserver.onEvent(onwebserverEvent);
+  server.addHandler(&webserver);
 
   server.on("/wifi", [&](AsyncWebServerRequest *request)
             {
@@ -93,10 +94,10 @@ void BMSWebServer::setup()
 //    json["chargerCurrent"] = outlanderCharger.reported_dc_current;
     json["requestedchargecurrent.val"] = chargecurrent;
 //    json["contactorStatus"] = bms.contactorsClosed();
-    json["chargeEnabled"] = chargeIsEnabled();
+    json["ppDetect"] = checkPPDetect(6);
 //    json["chargeOverride"] = io.getChargeOverride();
     json["ahUsed"] = amphours;
-    json["soc"] = SOC;
+    json["soc"] = bms.stateOfCharge;
     json["capacity.val"] = settings.CAP;
     json["current.val"] = currentact;
     
@@ -119,47 +120,75 @@ void BMSWebServer::setup()
     serializeJson(json, *response);
     request->send(response); });
 
-  server.on("/voltages", HTTP_GET, [&](AsyncWebServerRequest *request)
-            {
+  // server.on("/voltages", HTTP_GET, [&](AsyncWebServerRequest *request)
+  //           {
+  //   AsyncResponseStream *response = request->beginResponseStream("application/json");
+  //   DynamicJsonDocument json(20480);
+
+  //   bms.printPackDetailsJson(json);
+  //   serializeJson(json, *response);
+  //   request->send(response); 
+  // });
+
+  server.on("/config", HTTP_GET, [&] (AsyncWebServerRequest * request) {
     AsyncResponseStream *response = request->beginResponseStream("application/json");
-    DynamicJsonDocument json(20480);
-
-    bms.printPackDetailsJson(json);
+    DynamicJsonDocument json(2048);
+    // json["capacity"] = settings.CAP;
+    // json["seriesCells"] = settings.Scells;
+    // json["parallelCells"] = settings.Pstrings ;
+    // json["overVSetpoint"] = settings.OverVSetpoint * 1000;
+    // json["underVSetpoint"] = settings.UnderVSetpoint * 1000;
+    // json["chargeVsetpoint"] = settings.ChargeVsetpoint * 1000;
+    // json["dischVsetpoint"] = settings.DischVsetpoint * 1000;
+    // json["overTSetpoint"] = settings.OverTSetpoint;
+    // json["underTSetpoint"] = settings.UnderTSetpoint;
+    // json["chargeTSetpoint"] = settings.ChargeTSetpoint;
+    // json["disTSetpoint"] = settings.DisTSetpoint;
+    // json["balanceVoltage"] = settings.balanceVoltage * 1000;
+    // json["balanceHyst"] = settings.balanceHyst * 1000;
+    // json["carCanIndex"] = settings.veCanIndex;
+    // json["chargecurrentmax"] = settings.chargecurrentmax;
+    json["numberofchargers"] = settings.numberOfChargers;
     serializeJson(json, *response);
-    request->send(response); });
-  //
-  //  server.on("/config", HTTP_GET, [&] (AsyncWebServerRequest * request) {
-  //    AsyncResponseStream *response = request->beginResponseStream("application/json");
-  //    DynamicJsonDocument json(2048);
-  //
-  //    config.toJson(settings, json);
-  //    serializeJson(json, *response);
-  //    request->send(response);
-  //  });
+    request->send(response);
+  });
 
-  //  server.on(
-  //    "/config",
-  //    HTTP_POST,
-  //  [](AsyncWebServerRequest * request) {},
-  //  NULL,
-  //  [&](AsyncWebServerRequest * request, uint8_t *data, size_t len, size_t index, size_t total) {
-  //    Serial.println("Config POST");
-  //    const size_t JSON_DOC_SIZE = 1024U;
-  //    DynamicJsonDocument jsonDoc(JSON_DOC_SIZE);
-  //
-  //    if (DeserializationError::Ok == deserializeJson(jsonDoc, (const char*)data))
-  //    {
-  //      JsonObject obj = jsonDoc.as<JsonObject>();
-  //      config.fromJson(settings, obj);
-  //      Serial.print("Settings: ");
-  //      Serial.println(settings.acDetectionMethod);
-  //      config.save(settings);
-  //      request->send(200, "application/json", "success");
-  //
-  //    } else {
-  //      request->send(200, "application/json", "DeserializationError");
-  //    }
-  //  });
+
+  // server.on(
+  //   "/config",
+  //   HTTP_POST,
+  // [](AsyncWebServerRequest * request) {},
+  // NULL,
+  // [&](AsyncWebServerRequest * request, uint8_t *data, size_t len, size_t index, size_t total) {
+  //   // printf("Config POST \n");
+  //   // DynamicJsonDocument jsonDoc(2048);
+
+  //   // if (DeserializationError::Ok == deserializeJson(jsonDoc, (const char*)data))
+  //   // {
+  //   //   JsonObject json = jsonDoc.as<JsonObject>();
+  //   //   // settings.CAP = json["capacity"];
+  //   //   // settings.Scells= json["seriesCells"];
+  //   //   // settings.Pstrings = json["parallelCells"];
+  //   //   // settings.OverVSetpoint = ((float)json["overVSetpoint"] / 1000);
+  //   //   // settings.UnderVSetpoint = ((float)json["underVSetpoint"]/ 1000);
+  //   //   // settings.ChargeVsetpoint = ((float)json["chargeVsetpoint"]/ 1000);
+  //   //   // settings.DischVsetpoint = ((float)json["dischVsetpoint"]/ 1000);
+  //   //   // settings.OverTSetpoint = json["overTSetpoint"];
+  //   //   // settings.UnderTSetpoint = json["underTSetpoint"];
+  //   //   // settings.ChargeTSetpoint = json["chargeTSetpoint"];
+  //   //   // settings.DisTSetpoint = json["disTSetpoint"];
+  //   //   // settings.balanceVoltage = ((float)json["balanceVoltage"])/ 1000;
+  //   //   // settings.balanceHyst = ((float)json["balanceHyst"])/ 1000;
+  //   //   // settings.veCanIndex = json["carCanIndex"];
+  //   //   // settings.chargecurrentmax = json["chargecurrentmax"];
+  //   //   settings.numberOfChargers = json["numberofchargers"];
+  //   //   EEPROM.put(0, settings); //save all change to eeprom
+  //   //   EEPROM.commit();
+  //   //   request->send(200, "application/json", "success");
+  //   // } else {
+  //   //   request->send(200, "application/json", "DeserializationError");
+  //   // }
+  // });
 
   server.on("/cmd", HTTP_POST, [](AsyncWebServerRequest *request)
             {

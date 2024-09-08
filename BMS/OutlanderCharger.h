@@ -6,7 +6,7 @@
 class OutlanderCharger
 {
   public:
-    OutlanderCharger(BMSCan& bmscan, EEPROMSettings& settings);
+    OutlanderCharger(BMSCan &bmscan, EEPROMSettings &settings);
     void sendChargeMsg(BMS_CAN_MESSAGE &msg, int &chargecurrent);
     void printChargerStatus();
     void handleIncomingCAN(BMS_CAN_MESSAGE &inMsg);
@@ -17,6 +17,6 @@ class OutlanderCharger
     byte reported_status;
     byte evse_duty;
   private:
-    BMSCan bmscan;
-    EEPROMSettings settings;
+    BMSCan &bmscan;
+    EEPROMSettings &settings;
 };

@@ -5,11 +5,12 @@
 #include "ArduinoJson.h"
 #include "config.h"
 #include "BMSModuleManager.h"
+#include "Kangoo36.h"
 
 class BMSWebServer
 {
 public:
-  BMSWebServer(EEPROMSettings &settings, BMSModuleManager &bms);
+  BMSWebServer(EEPROMSettings &settings, KangooCan &bms);
   void setup();
   void execute();
   void broadcast(const char *message);
@@ -17,6 +18,6 @@ public:
 
 private:
   EEPROMSettings &settings;
-  BMSModuleManager &bms;
+  KangooCan &bms;
 };
 #endif

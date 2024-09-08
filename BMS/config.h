@@ -103,7 +103,6 @@ typedef struct
   int16_t chargecurrentcold;
   int chargerCanIndex;
   int veCanIndex;
-  int secondBatteryCanIndex;
   int rapidchargecurrentmax;
   int numberOfChargers;
   int numberOfModules;
