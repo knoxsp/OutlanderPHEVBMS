@@ -83,6 +83,7 @@ void BMSCan::begin(uint32_t baud, int interfaceIndex)
   }
   else if (interfaceIndex == 1 && !started[interfaceIndex])
   {
+    Serial.println("Starting CAN1");
 
     started[interfaceIndex] = true;
   }

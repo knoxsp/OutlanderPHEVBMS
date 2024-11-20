@@ -2,14 +2,16 @@
 #include <iostream>
 using namespace std;
 #include "config.h"
+#include <ArduinoJson.h>  
+#include "BMSCan.h"
 
 class KangooCan
 {
   public:
-    KangooCan(BMSCan& bmscan, EEPROMSettings& settings);
-    void sendKeepAliveFrame(BMS_CAN_MESSAGE &msg, byte &status);
+    KangooCan(BMSCan &bmscan, EEPROMSettings &settings);
+    void sendKeepAliveFrame(BMS_CAN_MESSAGE &msg, uint8_t &status);
     void sendIsoTpMessage(const uint8_t *data, uint8_t length);
-    void receiveIsoTpMessage(uint32_t expectedCanId, uint8_t *data, uint8_t &length);
+    // v  oid receiveISOTPMessage(uint32_t expectedCanId, uint8_t *data, uint8_t &length);
     bool ProcessISOTPResponse(const uint8_t* data);
     bool handlePID61Frame(const uint8_t* data);
     bool handlePID66Frame(const uint8_t* data);
@@ -22,6 +24,23 @@ class KangooCan
     void handleFrame155(const uint8_t* data);
     void handleFrame424(const uint8_t* data);
     void handleFrame425(const uint8_t* data);
+
+    uint8_t getLowestCellTemp();
+    uint8_t getHighestCellTemp();
+    float getPackVoltage();
+    int16_t getAvgTemperature();
+    int16_t getHighTemperature();
+    int16_t getLowTemperature();
+    float getAvgCellVolt();
+    float getLowCellVolt();
+    float getHighCellVolt();
+    uint16_t getHighVoltage();
+    uint16_t   getLowVoltage();
+    float getSOC();
+    float getSOH();
+    uint8_t getNumModules();
+    void printPackDetailsJson(JsonDocument &root);
+
 
     void printData();
 
@@ -46,6 +65,7 @@ class KangooCan
     uint16_t maxInputPowerRaw;
     uint16_t maxOutputPowerRaw;
     int32_t batteryCurrent;
+    int32_t numModules;
 
 
     //data from free can messages

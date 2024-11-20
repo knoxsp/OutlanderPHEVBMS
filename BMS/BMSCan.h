@@ -3,6 +3,7 @@
 #include <ACAN2515.h>
 #include <SPI.h>
 #define DEFAULT_CAN_INTERFACE_INDEX 0
+#define SECOND_CAN_INTERFACE_INDEX 1
 
 #define MCP2515_CS 5   // CS input of MCP2515
 #define MCP2515_INT 27 // INT output of MCP2515
