@@ -6,8 +6,10 @@
 #include "config.h"
 
 
-OutlanderCharger::OutlanderCharger(BMSCan& b, EEPROMSettings& s) : bmscan(b), settings{s}
+OutlanderCharger::OutlanderCharger(BMSCan &b, EEPROMSettings &s) : bmscan(b), settings{s}
 {
+    printf("Initializing charger: number of chargers: %d \n", settings.numberOfChargers);
+
 }
 
 
@@ -29,34 +31,18 @@ void OutlanderCharger::handleIncomingCAN(BMS_CAN_MESSAGE &inMsg)
 
 void OutlanderCharger::printChargerStatus()
 {
-    SERIALCONSOLE.println();
-    SERIALCONSOLE.print("Outlander Charger - Reported Voltage: ");
-    SERIALCONSOLE.print(this->reported_voltage);
-    SERIALCONSOLE.print("V Reported Current: ");
-    SERIALCONSOLE.print(this->reported_current / 10);
-    SERIALCONSOLE.print("A Reported Temp1: ");
-    SERIALCONSOLE.print(this->reported_temp1);
-    SERIALCONSOLE.print("C Reported Temp2: ");
-    SERIALCONSOLE.print(this->reported_temp2);
-    SERIALCONSOLE.print("C status: ");
-    if (this->reported_status == 0)
-    {
-      SERIALCONSOLE.print("Not Charging");
-    }
-    else if (this->reported_status == 0x04)
-    {
-      SERIALCONSOLE.print("Wait for Mains");
-    }
-    else if (this->reported_status == 0x08)
-    {
-      SERIALCONSOLE.print("Ready/Charging");
-    }
-    SERIALCONSOLE.println();
+    printf("Outlander Charger - Reported Voltage: %d\n", this->reported_voltage);
+    printf("V Reported Current: %d\n", this->reported_current / 10);
+    printf("A Reported Temp1: %d\n", this->reported_temp1);
+    printf("C Reported Temp2: %d\n", this->reported_temp2);
+    printf("C status: %s\n", this->reported_status == 0 ? "Not Charging" :
+                             this->reported_status == 0x04 ? "Wait for Mains" :
+                             this->reported_status == 0x08 ? "Ready/Charging" : "Unknown");
 }
 
 void OutlanderCharger::sendChargeMsg(BMS_CAN_MESSAGE &msg, int &chargecurrent)
 {
-
+    printf("Sendig charge Msg");
     msg.id = 0x285;
     msg.len = 8;
     msg.buf[0] = 0x0;
@@ -66,8 +52,8 @@ void OutlanderCharger::sendChargeMsg(BMS_CAN_MESSAGE &msg, int &chargecurrent)
     msg.buf[4] = 0x0;
     msg.buf[5] = 0x0;
     msg.buf[6] = 0x0;
-    bmscan.write(msg, settings.chargerCanIndex);
-
+    bmscan.write(msg, settings.veCanIndex);
+    delay(2);
     msg.id = 0x286;
     msg.len = 8;
     msg.buf[0] = highByte(uint16_t(settings.ChargeVsetpoint * settings.Scells * 10)); // volage
@@ -78,4 +64,5 @@ void OutlanderCharger::sendChargeMsg(BMS_CAN_MESSAGE &msg, int &chargecurrent)
     msg.buf[5] = 0x0;
     msg.buf[6] = 0x0;
     bmscan.write(msg, settings.chargerCanIndex);
+    delay(2);
 }

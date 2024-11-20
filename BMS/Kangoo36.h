@@ -41,7 +41,6 @@ class KangooCan
     uint8_t getNumModules();
     void printPackDetailsJson(JsonDocument &root);
 
-
     void printData();
 
     void handleIncomingCAN(BMS_CAN_MESSAGE &inMsg);

@@ -55,7 +55,6 @@ This version of SimpBMS has been modified as the Space Balls edition utilising t
 #include <EEPROM.h>
 #include <SPI.h>
 #include "BMSCan.h"
-// #include <iostream>
 // How do make it so that we don't have to include each charger individually?
 #include "OutlanderCharger.h"
 #include "Kangoo36.h"
@@ -69,7 +68,6 @@ This version of SimpBMS has been modified as the Space Balls edition utilising t
 #define CONFIG_ESP_TASK_WDT_IDLE_TIMEOUT 1
 #define HOSTNAME "BALLSBMS"
 
-//SerialConsole console;
 EEPROMSettings settings;
 BMSCan bmscan;
 BMS_CAN_MESSAGE msg;
@@ -331,7 +329,6 @@ void setup()
 
   bmscan.begin(500000, settings.chargerCanIndex);//can1
   bmscan.begin(500000, settings.veCanIndex); // can0
-//  Logger::setLoglevel(Logger::Off); // Debug = 0, Info = 1, Warn = 2, Error = 3, Off = 4
 
   // Initialize SPIFFS
   if (!SPIFFS.begin(true)) {
@@ -352,7 +349,6 @@ void setup()
   WiFi.mode(WIFI_AP_STA);
 
   WiFi.softAP("BALLSBMS", "spaceballs"); // Create access point
-
   //Connect to Wi-Fi
   WiFi.begin("BT-JNF6TR", "qauFKtE7GVRPMh");
   // WiFi.begin();
@@ -369,6 +365,7 @@ static void receivedFiltered(const CANMessage &inMsg)
   /*This does hardware filtering of can messages to avoid
   processing them in softare. This can / should be made generic.*/
   /*SK THIS IS TAKEN FROM BMW CODE -- NEEDS TO BE CHANGED TO OUTLANDER*/
+  printf("candebug %d",candebug);
   if (candebug == 1)
   {
     Serial.print(millis());
@@ -459,7 +456,7 @@ void loop()
 
   canread(DEFAULT_CAN_INTERFACE_INDEX);
 
-  bmscan.can1->dispatchReceivedMessage();
+  //bmscan.can1->dispatchReceivedMessage();
 
    if (crankSeen == false){
      if (digitalRead(CRANK_IN) == LOW){
@@ -550,7 +547,7 @@ void loop()
       printf("ERROR: Car in Drive and PP Detected. ");
       bmsstatus = Error;
     }
-
+  
     //If the car's in drive, and the motor or inverter are getting too hot
     //turn on the fan.
     if (inverterTemp > settings.inverterTempSetpoint ||
@@ -596,7 +593,6 @@ void loop()
 
   if (millis() - looptime > 500)
   {
-
     if ((bms.getHighCellVolt() > 0 || bms.getLowCellVolt() > 0 )&& (bms.getLowCellVolt() < settings.UnderVSetpoint || bms.getHighCellVolt() < settings.UnderVSetpoint))
     {
       if (UnderTime < millis()) // check is last time not undervoltage is longer thatn triptime ago
@@ -620,7 +616,6 @@ void loop()
       if (OverTime < millis()) // check is last time not undervoltage is longer thatn triptime ago
       {
         printf("ERROR: Over Voltage.  High: %.2f > Setpont %.2f", (float) bms.getHighCellVolt(), (float) settings.OverVSetpoint);
-
         bmsstatus = Error;
         ErrorReason = ErrorReason | 0x01;
       }
